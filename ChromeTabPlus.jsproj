@@ -53,28 +53,32 @@
     <AppxManifest Include="package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
+    <Content Include="background.js" />
     <Content Include="default.html" />
+    <Content Include="default.js" />
+    <Content Include="GoogleAppsScript.js" />
+    <Content Include="icon.png" />
     <Content Include="images\logo.png" />
     <Content Include="images\smalllogo.png" />
     <Content Include="images\splashscreen.png" />
     <Content Include="images\storelogo.png" />
-    <Content Include="js\background.js" />
-    <Content Include="js\default.js" />
     <Content Include="css\default.css" />
-    <Content Include="js\GoogleAppsScript.js" />
-    <Content Include="js\jquery-ui.min.js" />
-    <Content Include="js\jquery.min.js" />
-    <Content Include="js\newTab.js" />
-    <Content Include="js\options.js" />
-    <Content Include="js\popup.js" />
+    <Content Include="jquery-ui.min.js" />
+    <Content Include="jquery.min.js" />
     <Content Include="manifest.json" />
     <Content Include="newTab.html" />
+    <Content Include="newTab.js" />
     <Content Include="options.html" />
+    <Content Include="options.js" />
     <Content Include="popup.html" />
+    <Content Include="popup.js" />
     <None Include="WeatherHud_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="Microsoft.WinJS.1.0, Version=1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="js\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\$(WMSJSProjectDirectory)\Microsoft.VisualStudio.$(WMSJSProject).targets" />
   <!-- To modify your build process, add your task inside one of the targets below then uncomment
