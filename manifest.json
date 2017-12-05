@@ -1,0 +1,34 @@
+{
+	"name": "Weather Hud",
+	"version": "1.1",
+	"description": "Shows Weather Data for a zip code - high / low, current temp, sunset, etc.",
+	"permissions": [
+		"bookmarks"
+	],
+	"browser_action": {
+		"default_title": "Google Sheets Call",
+		"default_icon": "icon.png",
+		"default_popup": "popup.html"
+	},
+	"background":
+	{
+		"scripts":["background.js"]
+	},
+	"options_page": "options.html",
+	"permissions": [
+		"storage",
+		"activeTab",
+		"declarativeContent",
+		"https://docs.google.com/*",
+		"http://*.finance.yahoo.com/*",
+		"http://code.jquery.com/*",
+		"https://ajax.googleapis.com/",
+		"file://*/*"						// this part will create the checkbox on the extensions page to "Allow access to file URLs"
+	],
+	"chrome_url_overrides" : {
+		"newtab": "newTab.html"
+	},
+	
+	"manifest_version": 2,
+	"content_security_policy": "script-src 'self' https://ajax.googleapis.com; object-src 'self'"
+}

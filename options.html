@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>My Test Extension Options</title>
+	<!--<link rel="stylesheet" href="jquery.mobile-1.4.5.min.css">-->
+    <!-- <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">-->
+    <!-- Include the jQuery library -->
+    <!--<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>-->
+    <!-- Include the jQuery Mobile library -->
+    <!-- <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>-->
+	<script src="jquery.min.js"></script>
+</head>
+<body>
+
+	<!--
+	Favorite color:
+	<select id="color">
+		<option value="red">red</option>
+		<option value="green">green</option>
+		<option value="blue">blue</option>
+		<option value="yellow">yellow</option>
+	</select>
+	
+	<div data-role="page" id="main" data-theme="b" >
+		Spreadsheet Link: <input type="text" id="spreadsheetLink" /><br />
+        Spreadsheet Key: <input type="text" id="spreadsheetKey" /><br />
+		Spreadsheet GID: <input type="text" id="spreadsheetGid" /><br />
+		Import IO Key: <input type="text" id="importIoKey" /><br />
+		Import IO Link: <input type="text" id="importIoLink" /><br />
+
+		<label>
+			<input type="checkbox" id="like">
+			Should labels be displayed?
+		</label>
+
+        <br />
+        <br />
+        <form>
+            What to display in the badge on top of the extension symbol:<br />
+            <input type="radio" name="badgeValue" value="portfolioDailyGainPercentage" checked> Daily Gains for entire portfolio as a percentage<br>
+            <input type="radio" name="badgeValue" value="portfolioDailyGainCurrency" > Daily Gains for entire portfolio in local currency<br>
+            <input type="radio" name="badgeValue" value="portfolioTotalGainPercentage"> Total Gains for entire portfolio as a percentage<br>
+            <input type="radio" name="badgeValue" value="portfolioTotalGainCurrency"> Total Gains for entire portfolio in local currency<br>
+            <input type="radio" name="badgeValue" value="otherSymbol"> Specify a symbol to show:
+        </form>
+		
+		<br />
+        <label>Symbol of stock:</label>
+		<input type="text" id="badgeStockSymbol" /><br />
+	</div>
+	-->
+	<div>
+	
+		
+		<br />
+        <label>Zipcode</label>
+		<input type="text" id="zipcode" /><br />
+		
+		<br />
+		<br />
+		<br />
+		
+		<!-- Hidden temporarily -->
+		<div hidden>
+		<button id="setPhotoFolder">Set New Tab Photo Folder</button>
+		<br />
+		<br />
+		<input type="text" id="numberPhotos">
+		<br />
+		</div>
+		
+		<div id="status"></div>
+		<button id="save">Save</button>
+        <button id="default">Restore Defaults</button>
+		
+		<br />
+		<br />
+		<button id="showImageSetup">Show Images Setup</button>
+		<div id="imageSetup" style="display:none">
+			<br />
+			<br />
+			<b>Image 1:</b>
+			<input id="fileInput1" type="file" multiple>
+			<br />
+			Paste in its full file path without the filename: <input type="text" id="photoPath1">
+			<br>
+			<button id="saveFileNameAndPathButton">Save file name and file path</button>
+			
+		</div>
+	</div>
+
+	<script src="options.js"></script>
+</body>
+</html>
