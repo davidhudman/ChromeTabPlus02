@@ -1,17 +1,6 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-var spreadsheetKey = "1izdSqLvPfus1qVo12UopD4Z1CDHtC_UREPDh1GJvbf4";
-var stockArray = [];                    // an array of objects
-var stockArrayLabels = ["date", "symbol", "shares", "Total Paid", "Paid / share", "Price", "Ystrday", "$ Today", "% Today", "$ Profit Total", "% Profit Total"];
-var uniqueDates = [];                   // an array of objects
-var uniqueDatesLabels = ["date", "Total Paid", "Current", "$ Profit", "% Profit", "CloseYest$", "$ Today", "% Today"];
-var uniqueStocks = [];
-var uniqueStocksLabels = [];
-var totalValue;                         // an object
-var totalValueLabels = ["date", "Total Paid", "Current", "$ Profit", "% Profit", "CloseYest$", "$ Today", "% Today"];
-
 var displayLabels = true;
 
 var oddsMeeting = [];
@@ -20,28 +9,10 @@ numberOfRates = 6;
 meetingOddsDisplayed = 0;
 rateDisplayed = 0;
 
-var lastGoogleSheetsWriteMillis = 0;
-
-//      totalValue Array:               uniqueDates:                stockArray:
-
-// col 0: date                          Date                        Date                            
-// col 1: total price paid              total price paid            Symbol
-// col 2: total price current           total price current         Shares
-// col 3: profit $                      profit $                    Total Price Paid
-// col 4: profit %                      profit %                    Share Price Paid
-// col 5: Yesterday's Close Value       Yesterday's Close Value     Current Price - Yahoo
-// col 6: $ Profit Since Yesterday      $ Profit Since Yesterday    Yesterday's Close
-// col 7: % Profit Since Yesterday      % Profit Since Yesterday    $ Profit Since Yesterday
-// col 8:                                                           % Profit Since Yesterday
-// col 9:															$ Profit Total
-// col 10:															% Profit Total
-
 var todaysDate;
 var globalZipcode;
 
 function clickHandlers() {
-
-
     // sheetsAPI
     $('#sheetsAPI').click(function () {
         sheetsWriteRequest();
@@ -203,45 +174,70 @@ function getCryptoPrices() {
         // put the JSON text into a new object
         obj = JSON.parse(request.responseText);
 
-        // parse BTC price
-        btcString = "bitcoin";
-        try {
-            btcString = JSON.stringify(obj.BTC.USD);
-        } catch (e) {
-            btcString = "Failed to load BTC";
+        // define a string to hold all currency quotes
+        coinString = "";
+
+        // create a function to parse currency price once we have our list of currencies
+        function parseCoinPrice(coinName) {
+            try {
+                coinString += coinName + ": " + JSON.stringify(obj[coinName].USD) + "<br>";
+            } catch (e) {
+                coinString += "Failed to load " + coinName + "<br>";
+            }
         }
 
-        // parse ETH price
-        ethString = "ether";
-        try {
-            ethString = JSON.stringify(obj.ETH.USD);
-        } catch (e) {
-            ethString = "Failed to load ETH";
+        // define our list of currencies
+        coinList = ["BTC", "ETH", "BCH"];
+
+        // iterate through the list of currencies to obtain the quotes
+        for (var i = 0; i < coinList.length; i++) {
+            parseCoinPrice(coinList[i]);
         }
 
-        // parse BCH price
-        bchString = "bitcoin cash";
-        try {
-            bchString = JSON.stringify(obj.BCH.USD);
-        } catch (e) {
-            bchString = "Failed to load BCH";
-        }
-
-        // assign btcString and ethString to chrome.storage
-        // {}
-
-        // display the data in HTML
-        displayString = "";
-        displayString += "BTC: " + btcString + "<br>";
-        displayString += "ETH: " + ethString + "<br>";
-        displayString += "BCH: " + bchString + "<br>";
-
-        $('#BTC').html("<div>" + displayString + "</div>");
-
+        // display the quotes in HTML
+        $('#BTC').html("<div>" + coinString + "</div>");
     };
 
     // request data from a coin exchange
     request.open("GET", "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BCH,ETH,BTC&e=Bitfinex&tsyms=USD", true);
+    request.send();
+}
+
+function getFxPrices() {
+    var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
+
+    // handle the request
+    request.onreadystatechange = function () {
+        // put the JSON text into a new object
+        obj = JSON.parse(request.responseText);
+
+        // define a string to hold all currency quotes
+        fxString = "";
+
+        // create a function to parse currency price once we have our list of currencies
+        function parseCurrencyPrice(currencyName) {
+            try {
+                fxString += currencyName + ": " + Math.round(10000 * JSON.stringify(obj.quotes[currencyName])) / 10000 + " : " + Math.round(10000 * (1 / (JSON.stringify(obj.quotes[currencyName])))) / 10000 + "<br>";
+            } catch (e) {
+                fxString += "Failed to load " + currencyName + "<br>";
+            }
+        }
+
+        // define our list of currencies
+        currencyList = ["USDEUR", "USDCAD", "USDCNY", "USDJPY", "USDCHF", "USDHKD", "USDRUB", "USDAUD"];
+
+        // iterate through the list of currencies to obtain the quotes
+        for (var i = 0; i < currencyList.length; i++) {
+            parseCurrencyPrice(currencyList[i]);
+        }
+
+        // display the quotes in HTML
+        $('#FX').html("<div>" + fxString + "</div>");
+
+    };
+
+    // request data from a FX provider
+    request.open("GET", "http://apilayer.net/api/live?access_key=8d3ccddf951ea87e5c412a7a439e814c&format=1", true);
     request.send();
 }
 
@@ -254,4 +250,5 @@ document.addEventListener('DOMContentLoaded', function () {
     getCurrentWeatherData();
     getForecastWeatherData();
     getCryptoPrices();
+    getFxPrices();
 });
