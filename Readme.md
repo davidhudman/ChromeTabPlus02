@@ -1,6 +1,12 @@
 ﻿# Chrome Tab Plus #
 
-This chrome extension lets you see current weather with sunrise and sunset times, cryptocurrency quotes, foreign exchange quotes, and lets you set custom background images to appear when you open a new tab (because I was mad about the people at the Chrome Extension called "Momentum" for trying to charge people monthly to see backgrounds of their choice): 
+This chrome extension lets you see: 
+* Current weather with sunrise and sunset times
+* Cryptocurrency quotes
+* Foreign exchange quotes
+* Lets you set custom background images to appear when you open a new tab 
+
+I added the background images option because I was mad about the people at the Chrome Extension called "Momentum" for trying to charge people monthly to see backgrounds of their choice
 
 [![](https://github.com/davidhudman/ChromeTabPlus/blob/master/Screenshots/SS01.JPG)](https://github.com/davidhudman/ChromeTabPlus) 
 
