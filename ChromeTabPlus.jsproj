@@ -72,6 +72,7 @@
     <Content Include="options.js" />
     <Content Include="popup.html" />
     <Content Include="popup.js" />
+    <Content Include="Readme.md" />
     <None Include="WeatherHud_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
