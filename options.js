@@ -58,7 +58,7 @@ function restore_options() {
         document.getElementById('importIoLink').value = items.importLink;
         document.getElementById('like').checked = items.likesColor; */
         // document.getElementById('fileInput1').value = items.photoArray;
-        document.getElementById('photoPath1').value = items.photoPath;
+        document.getElementById('photoPath1').value = items.photoPath.slice(8,items.photoPath.length);  // small change to remove the "file:///" bit from the user's site
         document.getElementById('zipcode').value = items.zip;
         // document.getElementById('badgeStockSymbol').value = items.badgeStock;
         document.getElementById('numberPhotos').value = items.numberPhotos;
