@@ -4,6 +4,9 @@ This chrome extension lets you see current weather with sunrise and sunset times
 
 [![](https://github.com/davidhudman/ChromeTabPlus/blob/master/Screenshots/SS01.JPG)](https://github.com/davidhudman/ChromeTabPlus) 
 
+
+
+
 --------
 ### Access and Control ###
 
