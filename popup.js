@@ -241,6 +241,58 @@ function getFxPrices() {
     request.send();
 }
 
+function getStockPrices() {
+
+    stockListHolder = "";
+
+    chrome.storage.sync.get({
+        stocks: "MSFT FB AAPL"
+    }, function (items) {
+        // define a list of stocks to be used in the API call
+        stockListHolder = items.stocks.split(" "); // items.stocks;
+    });
+    // stockListHolder = "MSFT FB AAPL";
+    // parse stockList string into an array of strings - delimiter is comma
+    // var tempVar9 = stockListHolder.split(" ");
+
+    // define a list of stocks to be used in the API call
+    var stockList;
+    stockList = ["GDX", "GDXJ", "RGLD", "MSFT", "FB", "AAPL"];
+
+    var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
+
+    // handle the request
+    request.onreadystatechange = function () {
+        // put the JSON text into a new object
+        obj = JSON.parse(request.responseText);
+
+        // define a string to hold all stock quotes
+        stockString = "";
+
+        // create a function to parse currency price once we have our list of currencies
+        function parseStockPrice(stockName, index) {
+            try {
+                stockString += stockName + ": " + JSON.stringify(obj["Stock Quotes"][i]["2. price"]) + "<br>";
+            } catch (e) {
+                stockString += "Failed to load " + stockName + "<br>";
+            }
+        }
+
+        // iterate through the list of stocks to obtain the quotes
+        for (var i = 0; i < stockList.length; i++) {
+            parseStockPrice(stockList[i], i);
+        }
+
+        // display the quotes in HTML
+        $('#Stocks').html("<div>" + stockListHolder + "<br>" + stockString + "</div>");
+
+    };
+
+    // request data from a FX provider
+    request.open("GET", "https://www.alphavantage.co/query?function=BATCH_STOCK_QUOTES&symbols=" + stockList + "&apikey=G6C1DAA6ODS1Y2JV", true);
+    request.send();
+}
+
 
 
 // When the document loads, ask for the data
@@ -251,4 +303,5 @@ document.addEventListener('DOMContentLoaded', function () {
     getForecastWeatherData();
     getCryptoPrices();
     getFxPrices();
+    getStockPrices();
 });

@@ -8,6 +8,7 @@ function save_options() {
     // var importIoKey = document.getElementById('importIoKey').value;
     // var importIoLink = document.getElementById('importIoLink').value;
     var zipcode = document.getElementById('zipcode').value;
+    var stocksUI = document.getElementById('stocks').value;
     var numberPhotos = document.getElementById('numberPhotos').value;
     // var badgeStockSymbol = document.getElementById('badgeStockSymbol').value;
     chrome.storage.sync.set({
@@ -18,6 +19,7 @@ function save_options() {
         // sheetGid: spreadsheetGid,
         // importKey: importIoKey,
         zip: zipcode,
+        stocks: stocksUI,
         numberPhotos: numberPhotos
         // badgeStock: badgeStockSymbol
     }, function () {
@@ -43,6 +45,7 @@ function restore_options() {
         importLink: 'type your link',
         likesColor: true, */
         zip: 'type your zipcode',
+        stocks: 'type your list of stocks separated by spaces',
         // badgeStock: 'AAPL',
         photoPath: 'Set your photo path',
         numberPhotos: 'Set your number of photos',
@@ -60,6 +63,7 @@ function restore_options() {
         // document.getElementById('fileInput1').value = items.photoArray;
         document.getElementById('photoPath1').value = items.photoPath.slice(8,items.photoPath.length);  // small change to remove the "file:///" bit from the user's site
         document.getElementById('zipcode').value = items.zip;
+        document.getElementById('stocks').value = items.stocks;
         // document.getElementById('badgeStockSymbol').value = items.badgeStock;
         document.getElementById('numberPhotos').value = items.numberPhotos;
     });
@@ -75,6 +79,7 @@ function restore_defaults() {
         // importLink: 'type your link',
         // likesColor: true,
         zip: 'type your zipcode',
+        stocks: 'type your list of stocks separated by spaces',
         // badgeStock: 'type your stock to display in the badge',
         photoPath: 'file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG',
         numberPhotos: 'Put your number of photos'
@@ -115,10 +120,6 @@ function setPhotoDirectory() {
     form.reset();   // <-- Resets the input so we do get a `change` event,
     //     even if the user chooses the same file
 	
-}
-
-function someAlert(someAlertText = "Hello") {
-    alert("Hi mom");
 }
 
     function fileInput1Changed() {
