@@ -249,15 +249,10 @@ function getStockPrices() {
         stocks: "MSFT FB AAPL"
     }, function (items) {
         // define a list of stocks to be used in the API call
-        stockListHolder = items.stocks.split(" "); // items.stocks;
+        stockListHolder = items.stocks.split(" ");
     });
-    // stockListHolder = "MSFT FB AAPL";
-    // parse stockList string into an array of strings - delimiter is comma
-    // var tempVar9 = stockListHolder.split(" ");
 
-    // define a list of stocks to be used in the API call
-    var stockList;
-    stockList = ["GDX", "GDXJ", "RGLD", "MSFT", "FB", "AAPL"];
+    stockList = ["GDX", "GDXJ", "RGLD", "MSFT", "FB", "AAPL"];  // stockListHolder;
 
     var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
 
@@ -284,7 +279,7 @@ function getStockPrices() {
         }
 
         // display the quotes in HTML
-        $('#Stocks').html("<div>" + stockListHolder + "<br>" + stockString + "</div>");
+        $('#Stocks').html("<div>User entered: " + stockListHolder + "<br>" + stockString + "</div>");
 
     };
 
