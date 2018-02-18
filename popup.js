@@ -224,7 +224,17 @@ function getFxPrices() {
         }
 
         // define our list of currencies
-        currencyList = ["USDEUR", "USDCAD", "USDCNY", "USDJPY", "USDCHF", "USDHKD", "USDRUB", "USDAUD"];
+        currencyList = ["USDEUR", "USDJPY", "USDGBP", "USDCAD", "USDSEK", "USDCHF", "USDCNY", "USDHKD", "USDRUB", "USDAUD"];
+
+        // calculate dollar index
+        fxString += "$DXY: ";
+        fxString += Math.round(10000 *
+            50.14348
+            * Math.pow(1 / JSON.stringify(obj.quotes["USDEUR"]), -.576) * Math.pow(JSON.stringify(obj.quotes["USDJPY"]), 0.136)
+            * Math.pow(1 / JSON.stringify(obj.quotes["USDGBP"]), -0.119) * Math.pow(JSON.stringify(obj.quotes["USDCAD"]), 0.091)
+            * Math.pow(JSON.stringify(obj.quotes["USDSEK"]), 0.042) * Math.pow(JSON.stringify(obj.quotes["USDCHF"]), 0.036)
+            ) / 10000;
+        fxString += "<br>";
 
         // iterate through the list of currencies to obtain the quotes
         for (var i = 0; i < currencyList.length; i++) {
