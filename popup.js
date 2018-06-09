@@ -298,6 +298,33 @@ function getStockPrices() {
     request.send();
 }
 
+function getNews() {
+    var request = new XMLHttpRequest();
+
+    // handle the request
+    request.onreadystatechange = function () {
+        // put the JSON text into a new object
+        obj = JSON.parse(request.responseText);
+
+        // define a string to hold all news text
+        newsString = "";
+
+        // parse the data from the JSON object
+        for (var i = 0; i < 10; i++) {
+            newsString += '<details>' + '<summary>' + JSON.stringify(obj.query.results.rss.channel.item[i].title) + '</summary>'
+                + '<p>' + JSON.stringify(obj.query.results.rss.channel.item[i].description) + '</p>'
+                + '</details>';
+        }
+
+        // display the data in HTML
+        $('#News').html("<div>" + newsString + "</div>");
+
+    };
+
+    request.open("GET", "https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20xml%20where%20url%20%3D%20%27https%3A%2F%2Ffeeds.feedburner.com%2Fzerohedge%2Ffeed%27&format=json", true);
+    request.send();
+}
+
 
 
 // When the document loads, ask for the data
@@ -309,4 +336,5 @@ document.addEventListener('DOMContentLoaded', function () {
     getCryptoPrices();
     getFxPrices();
     getStockPrices();
+    getNews();
 });
