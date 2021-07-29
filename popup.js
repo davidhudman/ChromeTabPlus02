@@ -166,43 +166,6 @@ function getForecastWeatherData() {
     // http://api.openweathermap.org/data/2.5/forecast?zip=35226&appid=ecf2399bb46bd55b5ca7f129182dbef6
 }
 
-function getCryptoPrices() {
-    var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
-
-    // handle the request
-    request.onreadystatechange = function () {
-        // put the JSON text into a new object
-        obj = JSON.parse(request.responseText);
-
-        // define a string to hold all currency quotes
-        coinString = "";
-
-        // create a function to parse currency price once we have our list of currencies
-        function parseCoinPrice(coinName) {
-            try {
-                coinString += coinName + ": " + JSON.stringify(obj[coinName].USD) + "<br>";
-            } catch (e) {
-                coinString += "Failed to load " + coinName + "<br>";
-            }
-        }
-
-        // define our list of currencies
-        coinList = ["BTC", "ETH", "BCH"];
-
-        // iterate through the list of currencies to obtain the quotes
-        for (var i = 0; i < coinList.length; i++) {
-            parseCoinPrice(coinList[i]);
-        }
-
-        // display the quotes in HTML
-        $('#BTC').html("<div>" + coinString + "</div>");
-    };
-
-    // request data from a coin exchange
-    request.open("GET", "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BCH,ETH,BTC&e=Bitfinex&tsyms=USD", true);
-    request.send();
-}
-
 function getFxPrices() {
     var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
 
@@ -338,3 +301,81 @@ document.addEventListener('DOMContentLoaded', function () {
     getStockPrices();
     getNews();
 });
+
+let wsObj;
+let wsUrl = 'wss://www.gasnow.org/ws';
+
+let cryptos = {};
+let gasAmount = 21000;
+
+let updatePageGasPriceData = (data) => {
+    let ethUsd = cryptos["ETH"]
+  console.log(data.gasPrices);
+  if (data && data.gasPrices) {
+    let rapidObj = document.getElementById('rapid');
+    let fastObj = document.getElementById('fast');
+    let standardObj = document.getElementById('standard');
+    let slowObj = document.getElementById('slow');
+    rapidObj.innerHTML = Math.round(data.gasPrices.rapid / 1000000000) + " - $" + ((data.gasPrices.rapid / 1000000000000000000) * gasAmount * ethUsd).toFixed(2)
+    fastObj.innerHTML = Math.round(data.gasPrices.fast / 1000000000) + " - $" + ((data.gasPrices.fast / 1000000000000000000) * gasAmount * ethUsd).toFixed(2)
+    standardObj.innerHTML = Math.round(data.gasPrices.standard / 1000000000) + " - $" + ((data.gasPrices.standard / 1000000000000000000) * gasAmount * ethUsd).toFixed(2)
+    slowObj.innerHTML = Math.round(data.gasPrices.slow / 1000000000) + " - $" + ((data.gasPrices.slow / 1000000000000000000) * gasAmount * ethUsd).toFixed(2)
+  }
+};
+
+function getCryptoPrices() {
+    var request = new XMLHttpRequest();		// create a new request variable so we can make an HTTP GET request on our API
+
+    // handle the request
+    request.onreadystatechange = function () {
+        // put the JSON text into a new object
+        obj = JSON.parse(request.responseText);
+
+        // define a string to hold all currency quotes
+        coinString = "";
+
+        // create a function to parse currency price once we have our list of currencies
+        function parseCoinPrice(coinName) {
+            try {
+                coinString += coinName + ": " + JSON.stringify(obj[coinName].USD) + "<br>";
+                cryptos[coinName] = obj[coinName].USD
+            } catch (e) {
+                coinString += "Failed to load " + coinName + "<br>";
+            }
+        }
+
+        // define our list of currencies
+        coinList = ["BTC", "ETH", "BCH"];
+
+        // iterate through the list of currencies to obtain the quotes
+        for (var i = 0; i < coinList.length; i++) {
+            parseCoinPrice(coinList[i]);
+        }
+
+        wsObj = new WebSocket(wsUrl);
+        wsObj.onopen = (evt) => {
+        console.log("Connection open ...");
+        };
+
+        wsObj.onmessage = (evt) => {
+        const dataStr = evt.data;
+        const data = JSON.parse(dataStr);
+        
+        if (data.type) {
+            updatePageGasPriceData(data.data)
+        }
+        };
+
+        wsObj.onclose = (evt) => {
+        console.log("Connection closed.");
+        };
+
+        // display the quotes in HTML
+        $('#BTC').html("<div>" + coinString + "</div>");
+    };
+
+    // request data from a coin exchange
+    request.open("GET", "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BCH,ETH,BTC&e=Bitfinex&tsyms=USD", true);
+    request.send();
+}
+
