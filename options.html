@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>My Test Extension Options</title>
-	<!--<link rel="stylesheet" href="jquery.mobile-1.4.5.min.css">-->
+  <head>
+    <title>My Test Extension Options</title>
+    <!--<link rel="stylesheet" href="jquery.mobile-1.4.5.min.css">-->
     <!-- <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">-->
     <!-- Include the jQuery library -->
     <!--<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>-->
     <!-- Include the jQuery Mobile library -->
     <!-- <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>-->
-	<script src="jquery.min.js"></script>
-</head>
-<body>
-
-	<!--
+    <script src="jquery.min.js"></script>
+  </head>
+  <body>
+    <!--
 	Favorite color:
 	<select id="color">
 		<option value="red">red</option>
@@ -49,46 +48,45 @@
 		<input type="text" id="badgeStockSymbol" /><br />
 	</div>
 	-->
-	<div>
-	
-		
-		<br />
-        <label>Zipcode</label>
-		<input type="text" id="zipcode" /><br />
-        <label>Stocks</label>
-		<input type="text" id="stocks" /><br />
-		
-		<br />
-		<br />
-		<br />
-		
-		<!-- Hidden temporarily -->
-		<div hidden>
-		<button id="setPhotoFolder">Set New Tab Photo Folder</button>
-		<br />
-		<br />
-		<input type="text" id="numberPhotos">
-		<br />
-		</div>
-		
-		<div id="status"></div>
-		<button id="save">Save</button>
-        <button id="default">Restore Defaults</button>
-		
-		<br /><br /><br /><br /><br /><br />
-		<button id="showImageSetup">Show Images Setup</button>
-		<div id="imageSetup" style="display:none">
-			<br /><br />
-			<b>Images:</b>
-			<input id="fileInput1" type="file" multiple>
-			<br />
-			Paste in its full file path without the filename: <input type="text" id="photoPath1">
-			<br><br />
-			<button id="saveFileNameAndPathButton">Save file name and file path</button>
-			
-		</div>
-	</div>
+    <div>
+      <br />
+      <label>Zipcode</label>
+      <input type="text" id="zipcode" /><br />
+      <label>Stocks</label>
+      <input type="text" id="stocks" /><br />
 
-	<script src="options.js"></script>
-</body>
+      <br />
+      <br />
+      <br />
+
+      <!-- Hidden temporarily -->
+      <div hidden>
+        <button id="setPhotoFolder">Set New Tab Photo Folder</button>
+        <br />
+        <br />
+        <input type="text" id="numberPhotos" />
+        <br />
+      </div>
+
+      <div id="status"></div>
+      <button id="save">Save</button>
+      <button id="default">Restore Defaults</button>
+
+      <br /><br /><br /><br /><br /><br />
+      <button id="showImageSetup">Show Images Setup</button>
+      <div id="imageSetup" style="display: none">
+        <br /><br />
+        <b>Images:</b>
+        <input id="fileInput1" type="file" multiple />
+        <br />
+        Paste in its full file path without the filename:
+        <input type="text" id="photoPath1" /> <br /><br />
+        <button id="saveFileNameAndPathButton">
+          Save file name and file path
+        </button>
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
 </html>
