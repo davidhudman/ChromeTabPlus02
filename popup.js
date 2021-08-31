@@ -433,23 +433,11 @@ function getCryptoPrices() {
       parseCoinPrice(coinList[i]);
     }
 
-    wsObj = new WebSocket(wsUrl);
-    wsObj.onopen = (evt) => {
-      console.log("Connection open ...");
-    };
+    // get ETH gas prices
+    getEthGasPrices();
 
-    wsObj.onmessage = (evt) => {
-      const dataStr = evt.data;
-      const data = JSON.parse(dataStr);
-
-      if (data.type) {
-        updatePageGasPriceData(data.data);
-      }
-    };
-
-    wsObj.onclose = (evt) => {
-      console.log("Connection closed.");
-    };
+    // get BTC transaction prices
+    getBtcTransxPrices();
 
     // display the quotes in HTML
     $("#BTC").html("<div>" + coinString + "</div>");
@@ -463,3 +451,46 @@ function getCryptoPrices() {
   );
   request.send();
 }
+
+let sitoshisPerBitcoin = 100000000;
+let bytesPerStandardTransaction = 140;
+
+function getBtcTransxPrices() {
+    // fetch fees in sitoshis per byte
+    fetch('https://mempool.space/api/v1/fees/recommended')
+    .then((data) => {return data.json()})
+    .then((res) => {
+        let btcToUsd = cryptos["BTC"];
+        console.log("BTC fees: " + JSON.stringify(res));
+        if (res && res.hourFee) {
+            let fastObj = document.getElementById("btc-fastest");
+            let standardObj = document.getElementById("btc-halfhour");
+            let slowObj = document.getElementById("btc-hour");
+
+            fastObj.innerHTML = Math.round(res.fastestFee) + " - $" + ((res.fastestFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
+            standardObj.innerHTML = Math.round(res.halfHourFee) + " - $" + ((res.halfHourFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
+            slowObj.innerHTML = Math.round(res.hourFee) + " - $" + ((res.hourFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
+        }
+    })
+}
+
+function getEthGasPrices() {
+    wsObj = new WebSocket(wsUrl);
+    wsObj.onopen = (evt) => {
+        console.log("Connection open ...");
+    };
+
+    wsObj.onmessage = (evt) => {
+        const dataStr = evt.data;
+        const data = JSON.parse(dataStr);
+
+        if (data.type) {
+            updatePageGasPriceData(data.data);
+        }
+    };
+
+    wsObj.onclose = (evt) => {
+        console.log("Connection closed.");
+    };
+}
+
