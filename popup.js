@@ -137,38 +137,134 @@ function getDataForBadge() {
 }
 
 function getCurrentWeatherData() {
+  chrome.storage.sync.get(
+    {
+      zip: 35244,
+    },
+    function (items) {
+      getLatitudeAndLongitudeThenWeather(items.zip);
+    }
+  );
+}
+
+function getLatitudeAndLongitudeThenWeather(zip) {
   var request = new XMLHttpRequest();
 
   // handle the request
   request.onreadystatechange = function () {
-    // put the JSON text into a new object
-    obj = JSON.parse(request.responseText);
+    if (request.readyState === 4 && request.status === 200) {
+      // put the JSON text into a new object
+      obj = JSON.parse(request.responseText);
 
-    // parse the data from the JSON object
-    currentTemp = JSON.stringify(obj.main.temp) * 1.8 - 459.67;
-    // lowTemp = (JSON.stringify(obj.main.temp_min) * 1.8) - 459.67;
-    // highTemp = (JSON.stringify(obj.main.temp_max) * 1.8) - 459.67;
+      latitude = obj.results[0].geometry.location.lat;
+      longitude = obj.results[0].geometry.location.lng;
 
-    // display the data in HTML
-    $("#currentTemp").html(
-      "<div>Current Temp: " + currentTemp.toFixed(1) + "</div>"
-    );
-
-    // Set that value in Chrome Storage
-    chrome.storage.sync.set(
-      {
-        currentTemperature: currentTemp,
-      },
-      function () {}
-    );
+      getOpenMeteoWeather(latitude, longitude);
+    }
   };
 
   request.open(
     "GET",
-    "http://api.openweathermap.org/data/2.5/weather?zip=35226,us&appid=ecf2399bb46bd55b5ca7f129182dbef6",
+    "http://maps.googleapis.com/maps/api/geocode/json?address=" + zip,
     true
   );
   request.send();
+}
+
+function getOpenMeteoWeather(lat, lng) {
+  var request = new XMLHttpRequest();
+
+  // handle the request
+  request.onreadystatechange = function () {
+    if (request.readyState === 4 && request.status === 200) {
+      // Store the raw JSON response
+      const rawJsonResponse = request.responseText;
+
+      // Parse the JSON
+      obj = JSON.parse(rawJsonResponse);
+
+      // Create a container with the raw JSON and basic styling
+      let weatherHTML = `
+        <div class="weather-container" style="background-color: rgba(0, 0, 0, 0.05); border-radius: 10px; padding: 15px; margin-bottom: 15px; cursor: pointer;" title="Click to refresh weather data">
+          <div style="font-size: 14px; margin-bottom: 10px;">Click to refresh weather data</div>
+          <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow: auto; font-size: 12px;">${JSON.stringify(
+            obj,
+            null,
+            2
+          )}</pre>
+        </div>
+      `;
+
+      // Replace the weather display with our raw JSON display
+      $("#currentTemp").html(weatherHTML);
+      $("#highLowTemp").hide(); // Hide this since we're displaying raw data
+
+      // Add click handler to refresh weather data
+      $(".weather-container").click(function () {
+        // Show a loading message
+        $(this).html(
+          '<div style="text-align: center; padding: 20px;">Refreshing weather data...</div>'
+        );
+        // Refresh the weather data
+        getCurrentWeatherData();
+      });
+
+      // Store the essential weather data in Chrome Storage
+      chrome.storage.sync.set(
+        {
+          currentTemperature: obj.current_weather.temperature,
+          minTemperature: obj.daily.temperature_2m_min[0],
+          maxTemperature: obj.daily.temperature_2m_max[0],
+          precipitationProbability: obj.daily.precipitation_probability_max[0],
+          weatherRawJson: rawJsonResponse,
+        },
+        function () {}
+      );
+    }
+  };
+
+  request.open(
+    "GET",
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto`,
+    true
+  );
+  request.send();
+}
+
+// Helper function to convert WMO weather codes to descriptions
+function getWeatherDescription(code) {
+  const weatherCodes = {
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Fog",
+    48: "Depositing rime fog",
+    51: "Light drizzle",
+    53: "Moderate drizzle",
+    55: "Dense drizzle",
+    56: "Light freezing drizzle",
+    57: "Dense freezing drizzle",
+    61: "Slight rain",
+    63: "Moderate rain",
+    65: "Heavy rain",
+    66: "Light freezing rain",
+    67: "Heavy freezing rain",
+    71: "Slight snow fall",
+    73: "Moderate snow fall",
+    75: "Heavy snow fall",
+    77: "Snow grains",
+    80: "Slight rain showers",
+    81: "Moderate rain showers",
+    82: "Violent rain showers",
+    85: "Slight snow showers",
+    86: "Heavy snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm with slight hail",
+    99: "Thunderstorm with heavy hail",
+  };
+
+  return weatherCodes[code] || "Unknown";
 }
 
 function getForecastWeatherData() {
@@ -372,17 +468,17 @@ function getNews() {
 // When the document loads, ask for the data
 document.addEventListener("DOMContentLoaded", function () {
   // getDataForBadge();
-  displaySunriseSunset();
+  // displaySunriseSunset();
   getCurrentWeatherData();
-  getForecastWeatherData();
+  // getForecastWeatherData();
   getCryptoPrices();
   getFxPrices();
-  getStockPrices();
-  getNews();
+  // getStockPrices();
+  // getNews();
 });
 
 let wsObj;
-let wsUrl = "wss://www.gasnow.org/ws";
+let wsUrl = "wss://www.gasinfo.io/ws/v1/";
 
 let cryptos = {};
 let gasAmount = 21000;
@@ -426,7 +522,7 @@ function getCryptoPrices() {
     }
 
     // define our list of currencies
-    coinList = ["BTC", "ETH", "BCH"];
+    coinList = ["BTC", "ETH", "BCH", "ZEC", "XMR", "DOGE"];
 
     // iterate through the list of currencies to obtain the quotes
     for (var i = 0; i < coinList.length; i++) {
@@ -439,14 +535,24 @@ function getCryptoPrices() {
     // get BTC transaction prices
     getBtcTransxPrices();
 
+    // show BTC to BCH ratio from coin list
+    let btcToBch = cryptos["BCH"] / cryptos["BTC"];
+
     // display the quotes in HTML
-    $("#BTC").html("<div>" + coinString + "</div>");
+    $("#BTC").html(
+      "<div>" +
+        coinString +
+        "<br />" +
+        "BTC to BCH: " +
+        btcToBch.toFixed(8) +
+        "</div>"
+    );
   };
 
   // request data from a coin exchange
   request.open(
     "GET",
-    "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BCH,ETH,BTC&e=Bitfinex&tsyms=USD",
+    "https://min-api.cryptocompare.com/data/pricemulti?fsyms=DOGE,XMR,ZEC,BCH,ETH,BTC&e=Bitfinex&tsyms=USD",
     true
   );
   request.send();
@@ -456,41 +562,63 @@ let sitoshisPerBitcoin = 100000000;
 let bytesPerStandardTransaction = 140;
 
 function getBtcTransxPrices() {
-    // fetch fees in sitoshis per byte
-    fetch('https://mempool.space/api/v1/fees/recommended')
-    .then((data) => {return data.json()})
-    .then((res) => {
-        let btcToUsd = cryptos["BTC"];
-        console.log("BTC fees: " + JSON.stringify(res));
-        if (res && res.hourFee) {
-            let fastObj = document.getElementById("btc-fastest");
-            let standardObj = document.getElementById("btc-halfhour");
-            let slowObj = document.getElementById("btc-hour");
-
-            fastObj.innerHTML = Math.round(res.fastestFee) + " - $" + ((res.fastestFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
-            standardObj.innerHTML = Math.round(res.halfHourFee) + " - $" + ((res.halfHourFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
-            slowObj.innerHTML = Math.round(res.hourFee) + " - $" + ((res.hourFee / sitoshisPerBitcoin) * bytesPerStandardTransaction * btcToUsd).toFixed(2)
-        }
+  // fetch fees in sitoshis per byte
+  fetch("https://mempool.space/api/v1/fees/recommended")
+    .then((data) => {
+      return data.json();
     })
+    .then((res) => {
+      let btcToUsd = cryptos["BTC"];
+      console.log("BTC fees: " + JSON.stringify(res));
+      if (res && res.hourFee) {
+        let fastObj = document.getElementById("btc-fastest");
+        let standardObj = document.getElementById("btc-halfhour");
+        let slowObj = document.getElementById("btc-hour");
+
+        fastObj.innerHTML =
+          Math.round(res.fastestFee) +
+          " - $" +
+          (
+            (res.fastestFee / sitoshisPerBitcoin) *
+            bytesPerStandardTransaction *
+            btcToUsd
+          ).toFixed(2);
+        standardObj.innerHTML =
+          Math.round(res.halfHourFee) +
+          " - $" +
+          (
+            (res.halfHourFee / sitoshisPerBitcoin) *
+            bytesPerStandardTransaction *
+            btcToUsd
+          ).toFixed(2);
+        slowObj.innerHTML =
+          Math.round(res.hourFee) +
+          " - $" +
+          (
+            (res.hourFee / sitoshisPerBitcoin) *
+            bytesPerStandardTransaction *
+            btcToUsd
+          ).toFixed(2);
+      }
+    });
 }
 
 function getEthGasPrices() {
-    wsObj = new WebSocket(wsUrl);
-    wsObj.onopen = (evt) => {
-        console.log("Connection open ...");
-    };
+  wsObj = new WebSocket(wsUrl);
+  wsObj.onopen = (evt) => {
+    console.log("Connection open ...");
+  };
 
-    wsObj.onmessage = (evt) => {
-        const dataStr = evt.data;
-        const data = JSON.parse(dataStr);
+  wsObj.onmessage = (evt) => {
+    const dataStr = evt.data;
+    const data = JSON.parse(dataStr);
 
-        if (data.type) {
-            updatePageGasPriceData(data.data);
-        }
-    };
+    if (data.type) {
+      updatePageGasPriceData(data.data);
+    }
+  };
 
-    wsObj.onclose = (evt) => {
-        console.log("Connection closed.");
-    };
+  wsObj.onclose = (evt) => {
+    console.log("Connection closed.");
+  };
 }
-
