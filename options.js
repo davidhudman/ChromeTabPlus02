@@ -1,236 +1,155 @@
-// Saves options to chrome.storage
-function save_options() {
-  // var color = document.getElementById('color').value;
-  // var likesColor = document.getElementById('like').checked;
-  // var spreadsheetLink = document.getElementById('spreadsheetLink').value;
-  // var spreadsheetKey = document.getElementById('spreadsheetKey').value;
-  // var spreadsheetGid = document.getElementById('spreadsheetGid').value;
-  // var importIoKey = document.getElementById('importIoKey').value;
-  // var importIoLink = document.getElementById('importIoLink').value;
-  var zipcode = document.getElementById("zipcode").value;
-  var stocksUI = document.getElementById("stocks").value;
-  var numberPhotos = document.getElementById("numberPhotos").value;
-  // var badgeStockSymbol = document.getElementById('badgeStockSymbol').value;
-  chrome.storage.sync.set(
-    {
-      // favoriteColor: color,
-      // likesColor: likesColor,
-      // sheetLink: spreadsheetLink,
-      // sheetKey: spreadsheetKey,
-      // sheetGid: spreadsheetGid,
-      // importKey: importIoKey,
-      zip: zipcode,
-      stocks: stocksUI,
-      numberPhotos: numberPhotos,
-      // badgeStock: badgeStockSymbol
-    },
-    function () {
-      // Update status to let user know options were saved.
-      var status = document.getElementById("status");
-      status.textContent = "Options saved.";
-      setTimeout(function () {
-        status.textContent = "";
-      }, 750);
-    }
-  );
-}
+// Global variable to store selected images
+let selectedImages = [];
 
-// Restores select box and checkbox state using the preferences
-// stored in chrome.storage.
-function restore_options() {
-  // Use default value color = 'red' and likesColor = true.
-  chrome.storage.sync.get(
-    {
-      /* favoriteColor: 'red',
-        sheetLink: "type your entire link",
-        sheetKey: "type your key",
-        sheetGid: 'type your gid',
-        importKey: 'type your key',
-        importLink: 'type your link',
-        likesColor: true, */
-      zip: "type your zipcode",
-      stocks: "type your list of stocks separated by spaces",
-      // badgeStock: 'AAPL',
-      photoPath: "Set your photo path",
-      numberPhotos: "Set your number of photos",
-      photoArrayCountTotal: 0,
-      photoArrayCountCurrent: 0,
-      photoArray: "IMG_1869.JPG",
-    },
-    function (items) {
-      /* document.getElementById('color').value = items.favoriteColor;
-        document.getElementById('spreadsheetLink').value = items.sheetLink;
-        document.getElementById('spreadsheetKey').value = items.sheetKey;
-        document.getElementById('spreadsheetGid').value = items.sheetGid;
-        document.getElementById('importIoKey').value = items.importKey;
-        document.getElementById('importIoLink').value = items.importLink;
-        document.getElementById('like').checked = items.likesColor; */
-      // document.getElementById('fileInput1').value = items.photoArray;
-      document.getElementById("photoPath1").value = items.photoPath.slice(
-        8,
-        items.photoPath.length
-      ); // small change to remove the "file:///" bit from the user's site
-      document.getElementById("zipcode").value = items.zip;
-      document.getElementById("stocks").value = items.stocks;
-      // document.getElementById('badgeStockSymbol').value = items.badgeStock;
-      document.getElementById("numberPhotos").value = items.numberPhotos;
-    }
-  );
-}
+// Initialize the options page
+document.addEventListener("DOMContentLoaded", function () {
+  // Restore saved options
+  restoreOptions();
 
-function restore_defaults() {
-  chrome.storage.sync.set(
-    {
-      // favoriteColor: 'red',
-      // sheetLink: "type your entire link",
-      //sheetKey: "type your key",
-      // sheetGid: 'type your gid',
-      // importKey: 'type your key',
-      // importLink: 'type your link',
-      // likesColor: true,
-      zip: "type your zipcode",
-      stocks: "type your list of stocks separated by spaces",
-      // badgeStock: 'type your stock to display in the badge',
-      photoPath:
-        "file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG",
-      numberPhotos: "Put your number of photos",
-    },
-    function () {
-      // Update status to let user know options were saved.
-      var status = document.getElementById("status");
-      status.textContent = "Defaults Restored.";
-      setTimeout(function () {
-        status.textContent = "";
-      }, 750);
-    }
-  );
-  restore_options();
-}
+  // Set up event listeners
+  document.getElementById("save").addEventListener("click", saveOptions);
+  document.getElementById("default").addEventListener("click", restoreDefaults);
+  document
+    .getElementById("backgroundImages")
+    .addEventListener("change", handleImageSelection);
+});
 
-function setPhotoDirectory() {
-  alert("made it to method");
-  /* chrome.mediaGalleries.addUserSelectedFolder(
-		function(mediaFileSystems, selectedFileSystemName) {
-			alert("let user select folder");
-	}); */
-  var form = document.createElement("form");
-  form.appendChild(fileChooser);
-  var fileChooser = document.createElement("input");
-  fileChooser.type = "file";
+// Handle the selection of background images
+function handleImageSelection(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
 
-  var file = fileChooser.files[0];
-  var formData = new FormData();
-  formData.append(file.name, file);
+  // Clear previous selections
+  selectedImages = [];
 
-  var xhr = new XMLHttpRequest();
-  xhr.open("POST", uploadUrl, true);
-  xhr.addEventListener("readystatechange", function (evt) {
-    console.log("ReadyState: " + xhr.readyState, "Status: " + xhr.status);
+  // Process each selected file
+  Array.from(files).forEach((file) => {
+    // Only process image files
+    if (!file.type.match("image.*")) return;
+
+    // Create file reader to process the image
+    const reader = new FileReader();
+
+    reader.onload = function (event) {
+      const imageData = event.target.result;
+
+      // Store the image data
+      selectedImages.push({
+        name: file.name,
+        data: imageData,
+      });
+
+      // Show preview of the image
+      addImagePreview(imageData);
+    };
+
+    // Read the image as a data URL
+    reader.readAsDataURL(file);
   });
 
-  xhr.send(formData);
-  form.reset(); // <-- Resets the input so we do get a `change` event,
-  //     even if the user chooses the same file
+  // Show status message
+  showStatus(`${files.length} image(s) selected`);
 }
 
-function fileInput1Changed() {
-  var filesSelected, tempFileName, tempPhotoPath;
-  try {
-    filesSelected = document.getElementById("fileInput1");
-    tempFileName = filesSelected.files;
-    tempPhotoPath = document.getElementById("photoPath1").value;
-  } catch (e) {
-    var status = document.getElementById("status");
-    status.textContent =
-      "You must select a file and paste its file path in the text box.";
-    setTimeout(function () {
-      status.textContent = "";
-    }, 750);
-  }
+// Add image preview to the container
+function addImagePreview(imageData) {
+  const container = document.getElementById("imagePreviewContainer");
 
-  try {
-    if (filesSelected == null || tempPhotoPath == null || tempPhotoPath == "") {
-      var status = document.getElementById("status");
-      status.textContent = "You must set a valid file name and file path.";
-      setTimeout(function () {
-        status.textContent = "";
-      }, 2000);
-    } else {
-      var tempPhotoArray = [];
-      var tempPhotoArrayCount;
-      for (var i = 0; i < tempFileName.length; i++) {
-        tempPhotoArray[i] = tempFileName[i].name;
-        tempPhotoArrayCount = i;
-      }
-      // alert(tempFileName[i].name);
-      chrome.storage.sync.set(
-        {
-          photoPath: "file:///" + tempPhotoPath, // + '\\' + tempFileName[0].name, // 'file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG'
-          photoArrayCountTotal: tempPhotoArrayCount,
-          photoArrayCountCurrent: 0,
-          photoArray: tempPhotoArray,
-        },
-        function () {
-          // Update status to let user know options were saved.
-          var status = document.getElementById("status");
-          status.textContent = "Photo name and path saved.";
-          setTimeout(function () {
-            status.textContent = "";
-          }, 750);
-        }
-      );
-    }
-  } catch (e) {
-    var status = document.getElementById("status");
-    status.textContent = "There was a problem setting your file path";
-    setTimeout(function () {
-      status.textContent = "";
-    }, 750);
-  }
+  // Create image element
+  const img = document.createElement("img");
+  img.src = imageData;
+  img.className = "image-thumbnail";
+  img.alt = "Background preview";
+
+  // Add to container
+  container.appendChild(img);
 }
 
-function toggleImageSetup() {
-  $("#imageSetup").toggle();
+// Save options to chrome.storage
+function saveOptions() {
+  // Get values from form fields
+  const zipcode = document.getElementById("zipcode").value;
+  const stocks = document.getElementById("stocks").value;
+
+  // Prepare data for storage
+  const data = {
+    zip: zipcode,
+    stocks: stocks,
+    backgroundImages: selectedImages,
+    numberPhotos: selectedImages.length,
+  };
+
+  // Save to chrome.storage
+  chrome.storage.sync.set(data, function () {
+    showStatus("Settings saved successfully!");
+  });
 }
 
-function handle_files(files) {
-  for (i = 0; i < files.length; i++) {
-    file = files[i];
-    console.log(file);
-    var reader = new FileReader();
-    ret = [];
-    reader.onload = function (e) {
-      console.log(e.target.result);
-    };
-    reader.onerror = function (stuff) {
-      console.log("error", stuff);
-      console.log(stuff.getMessage());
-    };
-    reader.readAsText(file); //readAsdataURL
-  }
-  chrome.storage.sync.set(
+// Restore options from chrome.storage
+function restoreOptions() {
+  chrome.storage.sync.get(
     {
-      photoPath:
-        "file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG",
+      // Default values
+      zip: "",
+      stocks: "",
+      backgroundImages: [],
+      numberPhotos: 0,
     },
-    function () {
-      // Update status to let user know options were saved.
-      var status = document.getElementById("status");
-      status.textContent = "Defaults Restored.";
-      setTimeout(function () {
-        status.textContent = "";
-      }, 750);
+    function (items) {
+      // Populate form fields
+      document.getElementById("zipcode").value = items.zip;
+      document.getElementById("stocks").value = items.stocks;
+
+      // Restore image previews if available
+      if (items.backgroundImages && items.backgroundImages.length > 0) {
+        selectedImages = items.backgroundImages;
+
+        // Show previews for stored images
+        const container = document.getElementById("imagePreviewContainer");
+        container.innerHTML = ""; // Clear container
+
+        selectedImages.forEach((image) => {
+          addImagePreview(image.data);
+        });
+
+        showStatus(`${selectedImages.length} saved background images loaded`);
+      }
     }
   );
 }
 
-document.addEventListener("DOMContentLoaded", restore_options);
-document.getElementById("save").addEventListener("click", save_options);
-document
-  .getElementById("saveFileNameAndPathButton")
-  .addEventListener("click", fileInput1Changed);
-// document.getElementById('fileInput1').addEventListener('change', fileInput1Changed);
-document.getElementById("default").addEventListener("click", restore_defaults);
-document
-  .getElementById("showImageSetup")
-  .addEventListener("click", toggleImageSetup);
+// Restore default settings
+function restoreDefaults() {
+  // Set default values
+  chrome.storage.sync.set(
+    {
+      zip: "",
+      stocks: "",
+      backgroundImages: [],
+      numberPhotos: 0,
+    },
+    function () {
+      // Clear image previews
+      document.getElementById("imagePreviewContainer").innerHTML = "";
+      selectedImages = [];
+
+      // Reset form fields
+      document.getElementById("zipcode").value = "";
+      document.getElementById("stocks").value = "";
+
+      showStatus("Default settings restored");
+    }
+  );
+}
+
+// Show status message
+function showStatus(message) {
+  const status = document.getElementById("status");
+  status.textContent = message;
+  status.style.display = "block";
+
+  // Hide after delay
+  setTimeout(function () {
+    status.style.display = "none";
+  }, 3000);
+}

@@ -1,89 +1,164 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>My Test Extension Options</title>
-    <!--<link rel="stylesheet" href="jquery.mobile-1.4.5.min.css">-->
-    <!-- <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">-->
-    <!-- Include the jQuery library -->
-    <!--<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>-->
-    <!-- Include the jQuery Mobile library -->
-    <!-- <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>-->
+    <title>ChromeTabPlus Options</title>
     <script src="jquery.min.js"></script>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .container {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+        margin-top: 20px;
+      }
+
+      h1 {
+        color: #2c3e50;
+        margin-top: 0;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        font-size: 24px;
+      }
+
+      h2 {
+        color: #3498db;
+        font-size: 18px;
+        margin-top: 25px;
+        margin-bottom: 15px;
+      }
+
+      .option-group {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .option-group:last-child {
+        border-bottom: none;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #555;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        margin-bottom: 15px;
+        box-sizing: border-box;
+      }
+
+      input[type="file"] {
+        margin: 10px 0;
+        width: 100%;
+      }
+
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      button.secondary {
+        background-color: #95a5a6;
+      }
+
+      button.secondary:hover {
+        background-color: #7f8c8d;
+      }
+
+      #status {
+        margin: 15px 0;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #e8f4fd;
+        color: #3498db;
+        display: none;
+      }
+
+      .image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .image-thumbnail {
+        width: 120px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 2px solid #ddd;
+      }
+
+      .actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+      }
+    </style>
   </head>
   <body>
-    <!--
-	Favorite color:
-	<select id="color">
-		<option value="red">red</option>
-		<option value="green">green</option>
-		<option value="blue">blue</option>
-		<option value="yellow">yellow</option>
-	</select>
-	
-	<div data-role="page" id="main" data-theme="b" >
-		Spreadsheet Link: <input type="text" id="spreadsheetLink" /><br />
-        Spreadsheet Key: <input type="text" id="spreadsheetKey" /><br />
-		Spreadsheet GID: <input type="text" id="spreadsheetGid" /><br />
-		Import IO Key: <input type="text" id="importIoKey" /><br />
-		Import IO Link: <input type="text" id="importIoLink" /><br />
+    <div class="container">
+      <h1>ChromeTabPlus Options</h1>
 
-		<label>
-			<input type="checkbox" id="like">
-			Should labels be displayed?
-		</label>
+      <div class="option-group">
+        <h2>Background Images</h2>
+        <p>
+          Select multiple images to use as background on your new tab page. The
+          extension will rotate through these images.
+        </p>
 
-        <br />
-        <br />
-        <form>
-            What to display in the badge on top of the extension symbol:<br />
-            <input type="radio" name="badgeValue" value="portfolioDailyGainPercentage" checked> Daily Gains for entire portfolio as a percentage<br>
-            <input type="radio" name="badgeValue" value="portfolioDailyGainCurrency" > Daily Gains for entire portfolio in local currency<br>
-            <input type="radio" name="badgeValue" value="portfolioTotalGainPercentage"> Total Gains for entire portfolio as a percentage<br>
-            <input type="radio" name="badgeValue" value="portfolioTotalGainCurrency"> Total Gains for entire portfolio in local currency<br>
-            <input type="radio" name="badgeValue" value="otherSymbol"> Specify a symbol to show:
-        </form>
-		
-		<br />
-        <label>Symbol of stock:</label>
-		<input type="text" id="badgeStockSymbol" /><br />
-	</div>
-	-->
-    <div>
-      <br />
-      <label>Zipcode</label>
-      <input type="text" id="zipcode" /><br />
-      <label>Stocks</label>
-      <input type="text" id="stocks" /><br />
+        <input id="backgroundImages" type="file" multiple accept="image/*" />
 
-      <br />
-      <br />
-      <br />
+        <div id="imagePreviewContainer" class="image-preview-container">
+          <!-- Image previews will be shown here -->
+        </div>
+      </div>
 
-      <!-- Hidden temporarily -->
-      <div hidden>
-        <button id="setPhotoFolder">Set New Tab Photo Folder</button>
-        <br />
-        <br />
-        <input type="text" id="numberPhotos" />
-        <br />
+      <div class="option-group">
+        <h2>Weather Settings</h2>
+        <label for="zipcode">Your Zipcode (for weather information)</label>
+        <input type="text" id="zipcode" placeholder="Enter your zipcode" />
+      </div>
+
+      <div class="option-group">
+        <h2>Stock Ticker</h2>
+        <label for="stocks">Stocks to Monitor (separated by spaces)</label>
+        <input type="text" id="stocks" placeholder="Example: AAPL MSFT GOOG" />
       </div>
 
       <div id="status"></div>
-      <button id="save">Save</button>
-      <button id="default">Restore Defaults</button>
 
-      <br /><br /><br /><br /><br /><br />
-      <button id="showImageSetup">Show Images Setup</button>
-      <div id="imageSetup" style="display: none">
-        <br /><br />
-        <b>Images:</b>
-        <input id="fileInput1" type="file" multiple />
-        <br />
-        Paste in its full file path without the filename:
-        <input type="text" id="photoPath1" /> <br /><br />
-        <button id="saveFileNameAndPathButton">
-          Save file name and file path
-        </button>
+      <div class="actions">
+        <button id="default" class="secondary">Restore Defaults</button>
+        <button id="save">Save Settings</button>
       </div>
     </div>
 

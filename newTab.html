@@ -107,7 +107,7 @@
             margin-right: 5px;
           "
         >
-          View Deleted
+          Settings
         </button>
         <button
           id="toggleTodosVisibilityBtn"
@@ -148,8 +148,41 @@
       </div>
       <div id="deletedTodosContainer" style="display: none">
         <div
-          style="display: flex; justify-content: flex-end; margin-bottom: 5px"
+          style="
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 5px;
+            gap: 5px;
+          "
         >
+          <button
+            id="importJsonBtn"
+            style="
+              background: rgba(0, 0, 0, 0.7);
+              color: white;
+              border: none;
+              padding: 6px 12px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 12px;
+            "
+          >
+            Import JSON
+          </button>
+          <button
+            id="exportJsonBtn"
+            style="
+              background: rgba(0, 0, 0, 0.7);
+              color: white;
+              border: none;
+              padding: 6px 12px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 12px;
+            "
+          >
+            Export JSON
+          </button>
           <button
             id="permanentDeleteAllBtn"
             style="
@@ -167,6 +200,33 @@
         </div>
         <div id="deletedTodoList">
           <!-- Deleted Todos will be dynamically added here -->
+        </div>
+
+        <div
+          style="
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 5px;
+            font-size: 13px;
+            text-align: center;
+            cursor: pointer;
+          "
+          id="backgroundTip"
+        >
+          <p style="margin: 0">
+            Tip: Navigate backgrounds with the time
+            <br />
+            <span style="font-size: 11px">
+              (Hours side = next, Minutes side = previous)
+            </span>
+            <br />
+            <span style="font-size: 11px; margin-top: 5px; display: block">
+              Select your background images in Chrome Extensions > ChromeTabPlus
+              > Options
+            </span>
+          </p>
         </div>
       </div>
     </div>

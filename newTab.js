@@ -16,8 +16,33 @@ $(document).ready(function () {
   //   nextImageInChromeStoragePhotoArray();
   // });
 
-  $("#time").click(function () {
-    previousImageInChromeStoragePhotoArray();
+  // Remove the simple time click handler
+  // $("#time").click(function () {
+  //   previousImageInChromeStoragePhotoArray();
+  // });
+
+  // Add a more sophisticated click handler for the time
+  $("#time").click(function (e) {
+    // Get click position relative to the time element
+    const timeEl = document.getElementById("time");
+    const rect = timeEl.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const timeWidth = rect.width;
+
+    // If click is on the right half (minutes), go backward
+    if (clickX > timeWidth / 2) {
+      previousImageInChromeStoragePhotoArray();
+    }
+    // If click is on the left half (hours/colon), go forward
+    else {
+      nextImageInChromeStoragePhotoArray();
+    }
+  });
+
+  // Use delegated event handler for the background tip with dual approach
+  $(document).on("click", "#backgroundTip", function () {
+    // Just trigger the time click for consistency
+    $("#time").trigger("click");
   });
 
   getStoredGreeting();
@@ -142,6 +167,16 @@ $(document).ready(function () {
     confirmPermanentDeleteAll();
   });
 
+  // Add event listener for exporting as JSON
+  $("#exportJsonBtn").click(function () {
+    exportAsJson();
+  });
+
+  // Add event listener for importing from JSON
+  $("#importJsonBtn").click(function () {
+    importFromJson();
+  });
+
   // Check if TODOs visibility state is stored
   chrome.storage.sync.get(
     {
@@ -187,33 +222,63 @@ function displayTime() {
 }
 
 function nextImage() {
-  directoryPhotosIterate();
+  loadBackgroundImage();
 }
 
-function directoryPhotosIterate() {
-  var success = false;
+// Load background image from the stored images
+function loadBackgroundImage() {
+  chrome.storage.sync.get(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+    },
+    function (items) {
+      if (items.backgroundImages && items.backgroundImages.length > 0) {
+        // Get current index
+        let currentIndex = items.photoArrayCountCurrent;
 
-  while (!success) {
-    count = count + 1;
-    if (count > numImages) {
-      count = countStartValue;
-    }
+        // Calculate next index
+        currentIndex = (currentIndex + 1) % items.backgroundImages.length;
 
-    chrome.storage.sync.set(
-      {
-        cnt: count,
-      },
-      function () {
-        //
+        // Set the background image
+        $("#bodyid").css(
+          "background-image",
+          `url(${items.backgroundImages[currentIndex].data})`
+        );
+
+        // Save the new current index
+        chrome.storage.sync.set({
+          photoArrayCountCurrent: currentIndex,
+        });
+      } else {
+        // Fallback to default background if no images are stored
+        $("#bodyid").css("background-color", "#2c3e50");
       }
-    );
+    }
+  );
+}
 
-    $("#bodyid").attr("background", "/wallpaper/" + count + ".jpg");
-    // $("#bodyid").attr("background","https://lh3.googleusercontent.com/okjyywJfSGdcnq-rTpq3dJ1Rq9_QwMY-xqNrG5T-srenDNd5pKpyhik-1qulFSgOHnJASLgcJ3RYfbsXfzmIGwkwh1XEtGtR2OXW0ZveAduEBvuoVO4_2WXu6Xci5BrknB4381kxvCBgJiSdHOenRTct02BqNaAXgSL8-4RlRuYkCLlmEJUdwmiyyTJMUtsQNlDC82Q60wlwxiYvHuS-Dv3Xj5KKhdy5AXoTBz7w9c8s_-1BgYLbfc6NUqh65eeDF-PPtecWy_1B5xK1QdMG6hlT6QSUYLi-0jrk6pfTpxk5HYlXAdGwMt4g-46E1p1_oljMt4Mp5qvVNRcPDXWYQFHnqUjGzFHGeYmwvzmQy7T2jTmmnGRHAg16vbrLOhK9Zb_htEMfa11yE8IXwv08sdsZogzHqxWqGbcZdUhetOprUc79FhIw1f_tOJEI5HGUvz2hZ19UYaK11llyOtS1-oH7APGEDRIWzDZ_6Ze2Gr8sFw9FFK1HxbzEGxlOjK5a__13jGxAPPVQJu-04aigFoRYJrUJjgCEeGhaEkUiyeB_Q_2LhsxFq4qezKYNEk0G3MtPez5VGaxEFz4HA6xknGzqKwBEwvfWGbzE5WbOCLY=w1266-h949-no");
-
-    success = true;
-  }
-  // https://source.unsplash.com/random/2000x1000
+// Load initial background image on page load
+function loadInitialBackgroundImage() {
+  chrome.storage.sync.get(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+    },
+    function (items) {
+      if (items.backgroundImages && items.backgroundImages.length > 0) {
+        // Set the background image to the current index
+        const currentIndex = items.photoArrayCountCurrent;
+        $("#bodyid").css(
+          "background-image",
+          `url(${items.backgroundImages[currentIndex].data})`
+        );
+      } else {
+        // Fallback to default background if no images are stored
+        $("#bodyid").css("background-color", "#2c3e50");
+      }
+    }
+  );
 }
 
 function googlePhotosIterate() {}
@@ -497,12 +562,16 @@ document.addEventListener("DOMContentLoaded", function () {
   getFileSystemAccess();
   // countImagesInFolder();
   displayTime();
-  getStoredData();
+  // getStoredData(); // Replace with our new function
+  loadInitialBackgroundImage();
   displayWeatherData();
   var myVar = setInterval(displayTime, 1000);
   // Refresh weather every 30 minutes
   // setInterval(displayWeatherData, 1800000);
   // nextImage();
+
+  // Set up automatic background rotation every 5 minutes
+  setInterval(loadBackgroundImage, 300000);
 });
 
 // ... existing code ...
@@ -644,7 +713,7 @@ function toggleTodoView() {
   if (viewMode === 0) {
     // Switch to deleted view
     viewMode = 1;
-    $("#toggleTodoViewBtn").text("View Active");
+    $("#toggleTodoViewBtn").text("Back");
     $("#activeTodosContainer").hide();
     $("#deletedTodosContainer").show();
     $("#allTodosContainer").hide();
@@ -652,7 +721,7 @@ function toggleTodoView() {
   } else {
     // Switch to active view
     viewMode = 0;
-    $("#toggleTodoViewBtn").text("View Deleted");
+    $("#toggleTodoViewBtn").text("Settings");
     $("#activeTodosContainer").show();
     $("#deletedTodosContainer").hide();
     $("#allTodosContainer").hide();
@@ -1033,4 +1102,226 @@ function confirmPermanentDeleteAll() {
       }
     );
   }
+}
+
+// Function to export all notes and TODOs as JSON
+function exportAsJson() {
+  chrome.storage.sync.get(
+    {
+      greeting: "Sup, Rockstar",
+      notes: "Click to add notes",
+      bottomNotes: "Click to add bottom notes",
+      todos: [],
+      deletedTodos: [],
+    },
+    function (items) {
+      // Create an object with all the data
+      const exportData = {
+        greeting: items.greeting,
+        notes: items.notes,
+        bottomNotes: items.bottomNotes,
+        todos: items.todos,
+        deletedTodos: items.deletedTodos,
+      };
+
+      // Convert to JSON with pretty formatting
+      const jsonString = JSON.stringify(exportData, null, 2);
+
+      // Copy to clipboard
+      copyToClipboard(jsonString);
+
+      // Show a temporary notification
+      showNotification("JSON data copied to clipboard!");
+    }
+  );
+}
+
+// Helper function to copy text to clipboard
+function copyToClipboard(text) {
+  // Create a temporary textarea element
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+
+  // Select and copy the text
+  textarea.select();
+  document.execCommand("copy");
+
+  // Clean up
+  document.body.removeChild(textarea);
+}
+
+// Helper function to show a temporary notification
+function showNotification(message) {
+  // Create notification element if it doesn't exist
+  let notification = document.getElementById("notification");
+  if (!notification) {
+    notification = document.createElement("div");
+    notification.id = "notification";
+    notification.style.position = "fixed";
+    notification.style.bottom = "20px";
+    notification.style.left = "50%";
+    notification.style.transform = "translateX(-50%)";
+    notification.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    notification.style.color = "white";
+    notification.style.padding = "10px 20px";
+    notification.style.borderRadius = "5px";
+    notification.style.zIndex = "1000";
+    notification.style.transition = "opacity 0.5s ease";
+    document.body.appendChild(notification);
+  }
+
+  // Set the message
+  notification.textContent = message;
+  notification.style.opacity = "1";
+
+  // Hide after 3 seconds
+  setTimeout(function () {
+    notification.style.opacity = "0";
+  }, 3000);
+}
+
+// Function to import data from JSON
+function importFromJson() {
+  // Create a modal/dialog for pasting JSON
+  const modalContainer = document.createElement("div");
+  modalContainer.id = "jsonImportModal";
+  modalContainer.style.position = "fixed";
+  modalContainer.style.top = "0";
+  modalContainer.style.left = "0";
+  modalContainer.style.width = "100%";
+  modalContainer.style.height = "100%";
+  modalContainer.style.backgroundColor = "rgba(0,0,0,0.7)";
+  modalContainer.style.display = "flex";
+  modalContainer.style.justifyContent = "center";
+  modalContainer.style.alignItems = "center";
+  modalContainer.style.zIndex = "1001";
+
+  const modalContent = document.createElement("div");
+  modalContent.style.backgroundColor = "#fef9b0";
+  modalContent.style.padding = "20px";
+  modalContent.style.borderRadius = "5px";
+  modalContent.style.maxWidth = "500px";
+  modalContent.style.width = "90%";
+
+  const modalHeader = document.createElement("h3");
+  modalHeader.textContent = "Import JSON Data";
+  modalHeader.style.marginTop = "0";
+
+  const modalInstructions = document.createElement("p");
+  modalInstructions.textContent =
+    "Paste your previously exported JSON data below:";
+
+  const textArea = document.createElement("textarea");
+  textArea.style.width = "100%";
+  textArea.style.height = "200px";
+  textArea.style.marginBottom = "15px";
+  textArea.style.padding = "8px";
+  textArea.style.borderRadius = "4px";
+  textArea.style.border = "1px solid #ccc";
+
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.display = "flex";
+  buttonContainer.style.justifyContent = "space-between";
+
+  const importButton = document.createElement("button");
+  importButton.textContent = "Import";
+  importButton.style.backgroundColor = "#28a745";
+  importButton.style.color = "white";
+  importButton.style.border = "none";
+  importButton.style.padding = "8px 15px";
+  importButton.style.borderRadius = "4px";
+  importButton.style.cursor = "pointer";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.textContent = "Cancel";
+  cancelButton.style.backgroundColor = "#6c757d";
+  cancelButton.style.color = "white";
+  cancelButton.style.border = "none";
+  cancelButton.style.padding = "8px 15px";
+  cancelButton.style.borderRadius = "4px";
+  cancelButton.style.cursor = "pointer";
+
+  // Add event listeners for buttons
+  importButton.addEventListener("click", function () {
+    try {
+      const jsonData = JSON.parse(textArea.value);
+
+      // Perform validation to ensure required fields exist
+      if (!validateJsonData(jsonData)) {
+        throw new Error(
+          "Invalid JSON format. Please ensure you're using data previously exported from this app."
+        );
+      }
+
+      // Import the data
+      updateStorageFromJson(jsonData);
+
+      // Close the modal
+      document.body.removeChild(modalContainer);
+
+      // Show success notification
+      showNotification("Data imported successfully! Refreshing...");
+
+      // Refresh the page after a short delay to show the imported data
+      setTimeout(function () {
+        location.reload();
+      }, 1500);
+    } catch (e) {
+      alert("Error parsing JSON: " + e.message);
+    }
+  });
+
+  cancelButton.addEventListener("click", function () {
+    document.body.removeChild(modalContainer);
+  });
+
+  // Assemble the modal
+  buttonContainer.appendChild(cancelButton);
+  buttonContainer.appendChild(importButton);
+
+  modalContent.appendChild(modalHeader);
+  modalContent.appendChild(modalInstructions);
+  modalContent.appendChild(textArea);
+  modalContent.appendChild(buttonContainer);
+
+  modalContainer.appendChild(modalContent);
+
+  // Add to document
+  document.body.appendChild(modalContainer);
+}
+
+// Helper function to validate imported JSON data
+function validateJsonData(data) {
+  // Check if the data has the required structure
+  return (
+    data &&
+    typeof data === "object" &&
+    (data.hasOwnProperty("greeting") ||
+      data.hasOwnProperty("notes") ||
+      data.hasOwnProperty("bottomNotes") ||
+      data.hasOwnProperty("todos") ||
+      data.hasOwnProperty("deletedTodos"))
+  );
+}
+
+// Helper function to update storage with imported JSON data
+function updateStorageFromJson(data) {
+  // Prepare data to update with defaults for missing properties
+  const updateData = {};
+
+  // Only update properties that exist in the imported data
+  if (data.hasOwnProperty("greeting")) updateData.greeting = data.greeting;
+  if (data.hasOwnProperty("notes")) updateData.notes = data.notes;
+  if (data.hasOwnProperty("bottomNotes"))
+    updateData.bottomNotes = data.bottomNotes;
+  if (data.hasOwnProperty("todos")) updateData.todos = data.todos;
+  if (data.hasOwnProperty("deletedTodos"))
+    updateData.deletedTodos = data.deletedTodos;
+
+  // Update storage
+  chrome.storage.sync.set(updateData);
 }
