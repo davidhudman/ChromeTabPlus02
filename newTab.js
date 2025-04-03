@@ -69,6 +69,91 @@ $(document).ready(function () {
       this.blur();
     }
   });
+
+  getStoredBottomNotes();
+
+  // Add event listeners for the bottom notes
+  $("#bottomNotes").on("blur", function () {
+    saveBottomNotes();
+  });
+
+  $("#bottomNotes").on("keypress", function (e) {
+    if (e.which === 13 && e.shiftKey) {
+      // If Shift+Enter is pressed, save the changes
+      e.preventDefault();
+      this.blur();
+    }
+    // Regular Enter key will create a line break
+  });
+
+  $("#bottomNotes").on("keydown", function (e) {
+    if (e.which === 27) {
+      // Escape key
+      e.preventDefault();
+      this.blur();
+    }
+  });
+
+  // Add toggle button event listeners
+  $("#toggleTopNotes").click(function () {
+    toggleNotesVisibility("topNotesVisible", "#notes");
+  });
+
+  $("#toggleBottomNotes").click(function () {
+    toggleNotesVisibility("bottomNotesVisible", "#bottomNotes");
+  });
+
+  // Get stored visibility states
+  chrome.storage.sync.get(
+    {
+      topNotesVisible: true,
+      bottomNotesVisible: true,
+    },
+    function (items) {
+      if (!items.topNotesVisible) {
+        $("#notes").hide();
+      }
+      if (!items.bottomNotesVisible) {
+        $("#bottomNotes").hide();
+      }
+    }
+  );
+
+  // Initialize the TODO feature
+  initTodos();
+
+  // Add event listener for adding new TODOs
+  $("#addTodoBtn").click(function () {
+    createNewTodo();
+  });
+
+  // Add event listener for toggling between active and deleted TODOs
+  $("#toggleTodoViewBtn").click(function () {
+    toggleTodoView();
+  });
+
+  // Add event listener for toggling TODO section visibility
+  $("#toggleTodosVisibilityBtn").click(function () {
+    toggleTodosVisibility();
+  });
+
+  // Add event listener for permanent delete all
+  $("#permanentDeleteAllBtn").click(function () {
+    confirmPermanentDeleteAll();
+  });
+
+  // Check if TODOs visibility state is stored
+  chrome.storage.sync.get(
+    {
+      todosVisible: true,
+    },
+    function (items) {
+      if (!items.todosVisible) {
+        // Hide TODOs if they were hidden before
+        toggleTodosVisibility(false);
+      }
+    }
+  );
 });
 
 function doesFileExist() {
@@ -475,4 +560,477 @@ function saveNotes() {
       setTimeout(() => (element.style.opacity = "1"), 200);
     }
   );
+}
+
+// Add these functions near your other storage functions
+function getStoredBottomNotes() {
+  chrome.storage.sync.get(
+    {
+      bottomNotes: "Click to add bottom notes", // default value
+    },
+    function (items) {
+      document.getElementById("bottomNotes").innerHTML = items.bottomNotes;
+    }
+  );
+}
+
+function saveBottomNotes() {
+  const bottomNotes = document.getElementById("bottomNotes").innerHTML;
+  chrome.storage.sync.set(
+    {
+      bottomNotes: bottomNotes,
+    },
+    function () {
+      // Optional: Add visual feedback that the notes were saved
+      const element = document.getElementById("bottomNotes");
+      element.style.opacity = "0.5";
+      setTimeout(() => (element.style.opacity = "1"), 200);
+    }
+  );
+}
+
+// Add this new function to handle toggling notes visibility
+function toggleNotesVisibility(storageKey, elementSelector) {
+  chrome.storage.sync.get(
+    {
+      [storageKey]: true,
+    },
+    function (items) {
+      const newVisibility = !items[storageKey];
+      chrome.storage.sync.set(
+        {
+          [storageKey]: newVisibility,
+        },
+        function () {
+          if (newVisibility) {
+            $(elementSelector).show();
+          } else {
+            $(elementSelector).hide();
+          }
+        }
+      );
+    }
+  );
+}
+
+// Global state for todo view mode
+// 0 = active, 1 = deleted
+let viewMode = 0;
+let todosVisible = true;
+
+// TODO Feature functions
+function initTodos() {
+  // Load saved TODOs from storage
+  chrome.storage.sync.get(
+    {
+      todos: [], // Default empty array
+      deletedTodos: [], // Default empty array for deleted todos
+    },
+    function (items) {
+      // Render each saved active TODO
+      items.todos.forEach((todo) => {
+        renderTodo(todo, false);
+      });
+
+      // Render each saved deleted TODO
+      items.deletedTodos.forEach((todo) => {
+        renderTodo(todo, true);
+      });
+    }
+  );
+}
+
+function toggleTodoView() {
+  if (viewMode === 0) {
+    // Switch to deleted view
+    viewMode = 1;
+    $("#toggleTodoViewBtn").text("View Active");
+    $("#activeTodosContainer").hide();
+    $("#deletedTodosContainer").show();
+    $("#allTodosContainer").hide();
+    $("#addTodoBtn").hide();
+  } else {
+    // Switch to active view
+    viewMode = 0;
+    $("#toggleTodoViewBtn").text("View Deleted");
+    $("#activeTodosContainer").show();
+    $("#deletedTodosContainer").hide();
+    $("#allTodosContainer").hide();
+    $("#addTodoBtn").show();
+  }
+}
+
+function toggleTodosVisibility(setVisible) {
+  // If setVisible is provided, use it, otherwise toggle current state
+  if (setVisible !== undefined) {
+    todosVisible = setVisible;
+  } else {
+    todosVisible = !todosVisible;
+  }
+
+  if (todosVisible) {
+    // Show TODOs
+    $("#todoContainer").css({
+      width: "250px",
+      "max-height": "80vh",
+      "overflow-y": "auto",
+    });
+    $("#toggleTodosVisibilityBtn").text("Hide TODOs");
+    $("#activeTodosContainer").show();
+    if (viewMode === 1) {
+      $("#deletedTodosContainer").show();
+    }
+    $("#addTodoBtn").show();
+  } else {
+    // Hide TODOs
+    $("#todoContainer").css({
+      width: "auto",
+      "max-height": "none",
+      "overflow-y": "visible",
+    });
+    $("#toggleTodosVisibilityBtn").text("Show TODOs");
+    $("#activeTodosContainer").hide();
+    $("#deletedTodosContainer").hide();
+    $("#allTodosContainer").hide();
+    $("#addTodoBtn").hide();
+  }
+
+  // Save visibility state
+  chrome.storage.sync.set({
+    todosVisible: todosVisible,
+  });
+}
+
+function createNewTodo() {
+  // Generate a unique ID for the new TODO
+  const id = "todo_" + Date.now();
+
+  // Create a new TODO object
+  const todo = {
+    id: id,
+    title: "",
+    description: "",
+    expanded: false, // Changed to false - collapsed by default
+    createdAt: Date.now(),
+  };
+
+  // Render the new TODO in the UI
+  renderTodo(todo, false);
+
+  // Save the new TODO to storage
+  saveTodo(todo);
+}
+
+function renderTodo(todo, isDeleted) {
+  // Create the TODO element
+  const todoEl = document.createElement("div");
+  todoEl.id = todo.id;
+  todoEl.className = "todo-item";
+  todoEl.style.backgroundColor = "#fef9b0"; // Yellow sticky note color
+  todoEl.style.padding = "10px";
+  todoEl.style.borderRadius = "5px";
+  todoEl.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+  todoEl.style.position = "relative";
+  todoEl.style.transition = "all 0.3s ease";
+  todoEl.style.marginBottom = "5px"; // Add 5px vertical spacing between TODOs
+
+  // Create a container for the title row
+  const titleRow = document.createElement("div");
+  titleRow.style.display = "flex";
+  titleRow.style.justifyContent = "space-between";
+  titleRow.style.alignItems = "center";
+
+  // Create a toggle button to expand/collapse or recover
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "todo-toggle";
+  if (isDeleted) {
+    toggleBtn.textContent = "+"; // Simple plus sign for recovery
+    toggleBtn.title = "Recover todo";
+  } else {
+    toggleBtn.textContent = todo.expanded ? "-" : "+";
+    toggleBtn.title = todo.expanded ? "Collapse" : "Expand";
+  }
+  toggleBtn.style.background = "transparent";
+  toggleBtn.style.border = "none";
+  toggleBtn.style.fontSize = "16px";
+  toggleBtn.style.cursor = "pointer";
+  toggleBtn.style.color = isDeleted ? "#28a745" : "#555"; // Green for recover
+  toggleBtn.style.marginRight = "5px";
+  toggleBtn.style.width = "24px";
+  toggleBtn.style.height = "24px";
+  toggleBtn.style.lineHeight = "1";
+  toggleBtn.style.padding = "0";
+
+  // Create the title element
+  const titleEl = document.createElement("div");
+  titleEl.className = "todo-title";
+  titleEl.contentEditable = !isDeleted; // Only editable if not deleted
+  titleEl.style.fontWeight = "bold";
+  titleEl.style.outline = "none";
+  titleEl.style.flex = "1";
+  titleEl.textContent = todo.title;
+  if (todo.title === "" && !isDeleted) {
+    titleEl.dataset.placeholder = "New TODO";
+    titleEl.style.color = "#999";
+  }
+
+  // Handle title edit (save on blur) - only for active todos
+  if (!isDeleted) {
+    titleEl.addEventListener("focus", function () {
+      if (
+        this.textContent === "" &&
+        this.style.color === "rgb(153, 153, 153)"
+      ) {
+        this.style.color = "";
+      }
+    });
+
+    titleEl.addEventListener("blur", function () {
+      todo.title = this.textContent;
+      if (this.textContent === "") {
+        this.style.color = "#999";
+      }
+      updateTodo(todo);
+    });
+  }
+
+  // Add title and toggle button to title row
+  titleRow.appendChild(toggleBtn);
+  titleRow.appendChild(titleEl);
+
+  // Create description element (only visible when expanded)
+  const descEl = document.createElement("div");
+  descEl.className = "todo-description";
+  descEl.contentEditable = !isDeleted; // Only editable if not deleted
+  descEl.style.display = !isDeleted && todo.expanded ? "block" : "none";
+  descEl.style.marginTop = "5px";
+  descEl.style.outline = "none";
+  descEl.textContent = todo.description;
+  if (todo.description === "" && !isDeleted) {
+    descEl.dataset.placeholder = "Click to edit description";
+    descEl.style.color = "#999";
+  }
+
+  // Handle description edit (save on blur) - only for active todos
+  if (!isDeleted) {
+    descEl.addEventListener("focus", function () {
+      if (
+        this.textContent === "" &&
+        this.style.color === "rgb(153, 153, 153)"
+      ) {
+        this.style.color = "";
+      }
+    });
+
+    descEl.addEventListener("blur", function () {
+      todo.description = this.textContent;
+      if (this.textContent === "") {
+        this.style.color = "#999";
+      }
+      updateTodo(todo);
+    });
+  }
+
+  // Create delete button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "todo-delete";
+  deleteBtn.textContent = "X";
+  deleteBtn.style.position = "absolute";
+  deleteBtn.style.top = "5px";
+  deleteBtn.style.right = "5px";
+  deleteBtn.style.background = "transparent";
+  deleteBtn.style.border = "none";
+  deleteBtn.style.fontSize = "16px";
+  deleteBtn.style.cursor = "pointer";
+  deleteBtn.style.color = "#d9534f";
+  deleteBtn.style.fontWeight = "bold";
+
+  // Handle delete or permanent delete
+  deleteBtn.addEventListener("click", function () {
+    if (isDeleted) {
+      if (confirm("Are you sure you want to permanently delete this todo?")) {
+        permanentDeleteTodo(todo.id);
+        todoEl.remove();
+      }
+    } else {
+      moveTodoToDeleted(todo.id);
+      todoEl.remove();
+    }
+  });
+
+  // Handle toggle or recover
+  toggleBtn.addEventListener("click", function () {
+    if (isDeleted) {
+      recoverTodo(todo.id);
+      todoEl.remove();
+    } else {
+      todo.expanded = !todo.expanded;
+      descEl.style.display = todo.expanded ? "block" : "none";
+      toggleBtn.textContent = todo.expanded ? "-" : "+";
+      toggleBtn.title = todo.expanded ? "Collapse" : "Expand";
+      updateTodo(todo);
+    }
+  });
+
+  // Add all elements to the TODO
+  todoEl.appendChild(titleRow);
+  todoEl.appendChild(descEl);
+  todoEl.appendChild(deleteBtn);
+
+  // Add the TODO to the appropriate list
+  if (isDeleted) {
+    document.getElementById("deletedTodoList").appendChild(todoEl);
+  } else {
+    document.getElementById("todoList").appendChild(todoEl);
+  }
+
+  // Set focus on the title if it's a new empty todo
+  if (todo.title === "" && !isDeleted) {
+    titleEl.focus();
+  }
+}
+
+function saveTodo(todo) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      // Add the new TODO to the array
+      const todos = items.todos;
+      todos.push(todo);
+
+      // Save the updated array
+      chrome.storage.sync.set({
+        todos: todos,
+      });
+    }
+  );
+}
+
+function updateTodo(updatedTodo) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      // Find and update the TODO in the array
+      const todos = items.todos;
+      const index = todos.findIndex((todo) => todo.id === updatedTodo.id);
+
+      if (index !== -1) {
+        todos[index] = updatedTodo;
+
+        // Save the updated array
+        chrome.storage.sync.set({
+          todos: todos,
+        });
+      }
+    }
+  );
+}
+
+function moveTodoToDeleted(todoId) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+      deletedTodos: [],
+    },
+    function (items) {
+      // Find the todo to move
+      const todos = items.todos;
+      const index = todos.findIndex((todo) => todo.id === todoId);
+
+      if (index !== -1) {
+        // Get the todo and remove from active list
+        const todoToDelete = todos[index];
+        todos.splice(index, 1);
+
+        // Add to deleted list
+        const deletedTodos = items.deletedTodos;
+        deletedTodos.push(todoToDelete);
+
+        // Save both arrays
+        chrome.storage.sync.set({
+          todos: todos,
+          deletedTodos: deletedTodos,
+        });
+      }
+    }
+  );
+}
+
+function recoverTodo(todoId) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+      deletedTodos: [],
+    },
+    function (items) {
+      // Find the todo to recover
+      const deletedTodos = items.deletedTodos;
+      const index = deletedTodos.findIndex((todo) => todo.id === todoId);
+
+      if (index !== -1) {
+        // Get the todo and remove from deleted list
+        const todoToRecover = deletedTodos[index];
+        deletedTodos.splice(index, 1);
+
+        // Add to active list
+        const todos = items.todos;
+        todos.push(todoToRecover);
+
+        // Save both arrays
+        chrome.storage.sync.set(
+          {
+            todos: todos,
+            deletedTodos: deletedTodos,
+          },
+          function () {
+            // Re-render the recovered todo in the active list
+            if (viewMode === 0) {
+              renderTodo(todoToRecover, false);
+            }
+          }
+        );
+      }
+    }
+  );
+}
+
+function permanentDeleteTodo(todoId) {
+  chrome.storage.sync.get(
+    {
+      deletedTodos: [],
+    },
+    function (items) {
+      // Filter out the deleted TODO
+      const deletedTodos = items.deletedTodos.filter(
+        (todo) => todo.id !== todoId
+      );
+
+      // Save the updated array
+      chrome.storage.sync.set({
+        deletedTodos: deletedTodos,
+      });
+    }
+  );
+}
+
+function confirmPermanentDeleteAll() {
+  if (
+    confirm(
+      "Are you sure you want to permanently delete ALL items in the trash? This cannot be undone."
+    )
+  ) {
+    chrome.storage.sync.set(
+      {
+        deletedTodos: [],
+      },
+      function () {
+        // Clear the deleted todos list in the UI
+        document.getElementById("deletedTodoList").innerHTML = "";
+      }
+    );
+  }
 }
