@@ -935,12 +935,8 @@ function initTodos() {
       deletedTodos: [], // Default empty array for deleted todos
     },
     function (items) {
-      // Render each saved active TODO
-      items.todos.forEach((todo) => {
-        renderTodo(todo, false);
-      });
-
-      // Render each saved deleted TODO
+      // Only render the deleted TODOs here since active ones are rendered by refreshTodoList()
+      // that gets called at the end of initProjects()
       items.deletedTodos.forEach((todo) => {
         renderTodo(todo, true);
       });

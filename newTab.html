@@ -206,6 +206,54 @@
           <!-- Deleted Todos will be dynamically added here -->
         </div>
 
+        <!-- Add Background Settings Section -->
+        <div
+          style="
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 15px;
+          "
+        >
+          <h4 style="margin-top: 0; font-size: 14px; font-weight: bold">
+            Background Settings
+          </h4>
+          <div style="display: flex; gap: 8px; margin-top: 8px">
+            <button
+              id="toggleBgImagesData"
+              style="
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 12px;
+                flex: 1;
+              "
+            >
+              Show BG Images
+            </button>
+            <button
+              id="showRawStorageData"
+              style="
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 12px;
+                flex: 1;
+              "
+            >
+              Storage Data
+            </button>
+          </div>
+        </div>
+
         <div
           style="
             margin-top: 15px;
@@ -337,39 +385,5 @@
         <!-- Background images data will be dynamically added here -->
       </div>
     </div>
-
-    <button
-      id="toggleBgImagesData"
-      style="
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-      "
-    >
-      Show BG Images
-    </button>
-
-    <button
-      id="showRawStorageData"
-      style="
-        position: absolute;
-        bottom: 20px;
-        left: 130px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-      "
-    >
-      Show Raw Storage
-    </button>
   </body>
 </html>
