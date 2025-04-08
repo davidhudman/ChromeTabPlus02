@@ -30,12 +30,56 @@ $(document).ready(function () {
     const timeWidth = rect.width;
 
     // If click is on the right half (minutes), go backward
-    if (clickX > timeWidth / 2) {
+    if (clickX > timeWidth * 0.67) {
       previousImageInChromeStoragePhotoArray();
     }
-    // If click is on the left half (hours/colon), go forward
-    else {
+    // If click is on the left third (hours), go forward
+    else if (clickX < timeWidth * 0.33) {
       nextImageInChromeStoragePhotoArray();
+    }
+    // If click is in the middle (colon), toggle default background
+    else {
+      // Check current background state and toggle
+      chrome.storage.local.get(
+        {
+          backgroundImages: [],
+          useDefaultBackground: false,
+        },
+        function (items) {
+          console.log("Toggle background - Current state:", items);
+
+          if (items.useDefaultBackground) {
+            // Currently using default background, try to switch to custom
+            if (items.backgroundImages && items.backgroundImages.length > 0) {
+              console.log(
+                "Switching to custom background:",
+                items.backgroundImages[0]
+              );
+
+              // Switch to first custom background
+              $("#bodyid").css(
+                "background-image",
+                `url(${items.backgroundImages[0].data})`
+              );
+              $("#bodyid").css("background-color", "");
+
+              // Save the state
+              chrome.storage.local.set({
+                photoArrayCountCurrent: 0,
+                useDefaultBackground: false,
+              });
+            } else {
+              // No custom backgrounds available
+              showNotification(
+                "No custom backgrounds available. Add images in extension options."
+              );
+            }
+          } else {
+            // Currently using custom background, switch to default
+            setDefaultBackground();
+          }
+        }
+      );
     }
   });
 
@@ -189,6 +233,37 @@ $(document).ready(function () {
       }
     }
   );
+
+  // Modify the backgroundTip content when DOM is ready
+  $(document).ready(function () {
+    // Update backgroundTip content
+    $("#backgroundTip").html(`
+      <p style="margin: 0">
+        <b>Background Controls:</b>
+        <br />
+        <span style="font-size: 11px">
+          Click on time: <b>Left</b> = next image, <b>Middle</b> = toggle default background, <b>Right</b> = previous image
+        </span>
+        <br />
+        <span style="font-size: 11px; margin-top: 5px; display: block">
+          Upload images in Chrome Extensions > ChromeTabPlus > Options
+        </span>
+      </p>
+    `);
+  });
+
+  // Initialize background image data display
+  initBackgroundImagesData();
+
+  // Toggle background images data visibility
+  $("#toggleBgImagesData").click(function () {
+    toggleBgImagesDataVisibility();
+  });
+
+  // Add event listener for showing raw storage data
+  $("#showRawStorageData").click(function () {
+    showRawStorageData();
+  });
 });
 
 function doesFileExist() {
@@ -227,7 +302,7 @@ function nextImage() {
 
 // Load background image from the stored images
 function loadBackgroundImage() {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       backgroundImages: [],
       photoArrayCountCurrent: 0,
@@ -245,13 +320,23 @@ function loadBackgroundImage() {
           "background-image",
           `url(${items.backgroundImages[currentIndex].data})`
         );
+        $("#bodyid").css("background-color", ""); // Clear any background color
 
         // Save the new current index
-        chrome.storage.sync.set({
-          photoArrayCountCurrent: currentIndex,
-        });
+        chrome.storage.local.set(
+          {
+            photoArrayCountCurrent: currentIndex,
+            useDefaultBackground: false, // Explicitly set we're not using default background
+            photoSourceType: "encoded", // Mark that we're using encoded images
+          },
+          function () {
+            // Refresh background images data display after changing
+            loadBackgroundImagesData();
+          }
+        );
       } else {
         // Fallback to default background if no images are stored
+        $("#bodyid").css("background-image", "none");
         $("#bodyid").css("background-color", "#2c3e50");
       }
     }
@@ -260,23 +345,56 @@ function loadBackgroundImage() {
 
 // Load initial background image on page load
 function loadInitialBackgroundImage() {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       backgroundImages: [],
       photoArrayCountCurrent: 0,
+      useDefaultBackground: false,
+      photoSourceType: null,
     },
     function (items) {
-      if (items.backgroundImages && items.backgroundImages.length > 0) {
+      console.log("Initial background load:", items);
+
+      if (items.useDefaultBackground) {
+        // Set the default dark background
+        $("#bodyid").css("background-image", "none");
+        $("#bodyid").css("background-color", "#2c3e50");
+
+        // Make sure source type is clear
+        if (items.photoSourceType !== null) {
+          chrome.storage.local.set({ photoSourceType: null });
+        }
+      } else if (items.backgroundImages && items.backgroundImages.length > 0) {
         // Set the background image to the current index
         const currentIndex = items.photoArrayCountCurrent;
+        console.log(
+          "Setting background image:",
+          items.backgroundImages[currentIndex]
+        );
+
         $("#bodyid").css(
           "background-image",
           `url(${items.backgroundImages[currentIndex].data})`
         );
+
+        // Ensure photoSourceType is set for encoded images
+        if (items.photoSourceType !== "encoded") {
+          chrome.storage.local.set({ photoSourceType: "encoded" });
+        }
       } else {
         // Fallback to default background if no images are stored
+        console.log("No background images found, using default");
+        $("#bodyid").css("background-image", "none");
         $("#bodyid").css("background-color", "#2c3e50");
+
+        // Make sure source type is clear
+        if (items.photoSourceType !== null) {
+          chrome.storage.local.set({ photoSourceType: null });
+        }
       }
+
+      // Update background images data
+      loadBackgroundImagesData();
     }
   );
 }
@@ -294,7 +412,7 @@ function prevImage() {
 
     chrome.storage.sync.set(
       {
-        cnt: count,
+        photoArrayCountCurrent: count,
       },
       function () {
         //
@@ -304,14 +422,14 @@ function prevImage() {
     // $("#bodyid").attr("background","/wallpaper/" + count + ".jpg");
     $("#bodyid").attr(
       "background",
-      "file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG"
+      "file:///Users/dhudman/Pictures/backgrounds/derick-daily-xw69fz33sKg-unsplash.jpg"
     );
     success = true;
 
     chrome.storage.sync.get(
       {
         photoPath:
-          "file:///C:/Users/dhudman/Pictures/Personal/Friends/IMG_1869.JPG",
+          "file:///Users/dhudman/Pictures/backgrounds/derick-daily-xw69fz33sKg-unsplash.jpg",
       },
       function (items) {
         $("#bodyid").attr("background", items.photoPath); // restore the image that was on last
@@ -322,58 +440,161 @@ function prevImage() {
 }
 
 function nextImageInChromeStoragePhotoArray() {
-  nextOrPreviousImageInChromeStorageArray(1);
+  // First check what type of photo source we're using
+  chrome.storage.local.get(
+    {
+      photoSourceType: null,
+    },
+    function (preferences) {
+      if (preferences.photoSourceType === "filesystem") {
+        // Using filesystem photos, get from sync storage
+        nextFilesystemImage();
+      } else {
+        // Using encoded images, use standard method
+        loadBackgroundImage();
+      }
+    }
+  );
 }
 
 function previousImageInChromeStoragePhotoArray() {
-  nextOrPreviousImageInChromeStorageArray(-1);
+  // First check what type of photo source we're using
+  chrome.storage.local.get(
+    {
+      photoSourceType: null,
+    },
+    function (preferences) {
+      if (preferences.photoSourceType === "filesystem") {
+        // Using filesystem photos, get from sync storage
+        previousFilesystemImage();
+      } else {
+        // Using encoded images, use standard method
+        previousEncodedImage();
+      }
+    }
+  );
 }
 
-function nextOrPreviousImageInChromeStorageArray(incrementor) {
+// Navigate to next image when using filesystem paths
+function nextFilesystemImage() {
   chrome.storage.sync.get(
     {
-      photoPath: "file:///C:/Users/dhudman/Pictures/Personal/Friends",
-      photoArrayCountTotal: 0,
+      photoPath: null,
+      photoArray: null,
       photoArrayCountCurrent: 0,
-      photoArray: "IMG_1869.JPG",
+      photoArrayCountTotal: 0,
     },
-    function (items) {
-      var tempPhotoArrayCountCurrent = items.photoArrayCountCurrent;
-      var tempPhotoArrayCountTotal = items.photoArrayCountTotal;
-      if (
-        (items.photoArrayCountCurrent < items.photoArrayCountTotal &&
-          incrementor == 1) ||
-        (incrementor == -1 && items.photoArrayCountCurrent > 0)
-      ) {
-        tempPhotoArrayCountCurrent += incrementor;
-        chrome.storage.sync.set(
-          {
-            photoArrayCountCurrent: tempPhotoArrayCountCurrent,
-          },
-          function () {
-            //
-          }
-        );
-      } else {
-        if (incrementor == 1) tempPhotoArrayCountCurrent = 0;
-        else tempPhotoArrayCountCurrent = tempPhotoArrayCountTotal;
+    function (syncItems) {
+      if (syncItems.photoPath && syncItems.photoArray) {
+        // Using old format, go to next image
+        let currentIndex = syncItems.photoArrayCountCurrent || 0;
+        const photos = Array.isArray(syncItems.photoArray)
+          ? syncItems.photoArray
+          : [syncItems.photoArray];
 
+        // Calculate next index
+        currentIndex = (currentIndex + 1) % photos.length;
+
+        // Save the new index
         chrome.storage.sync.set(
           {
-            photoArrayCountCurrent: tempPhotoArrayCountCurrent,
+            photoArrayCountCurrent: currentIndex,
           },
           function () {
-            //
+            // Update the background with the new image
+            useExplicitFilePaths({
+              ...syncItems,
+              photoArrayCountCurrent: currentIndex,
+            });
           }
         );
       }
+    }
+  );
+}
 
-      var tempPhotoArray = items.photoArray;
+// Navigate to previous image when using filesystem paths
+function previousFilesystemImage() {
+  chrome.storage.sync.get(
+    {
+      photoPath: null,
+      photoArray: null,
+      photoArrayCountCurrent: 0,
+    },
+    function (syncItems) {
+      if (syncItems.photoPath && syncItems.photoArray) {
+        // Using old format, go to previous image
+        let currentIndex = syncItems.photoArrayCountCurrent || 0;
+        const photos = Array.isArray(syncItems.photoArray)
+          ? syncItems.photoArray
+          : [syncItems.photoArray];
 
-      $("#bodyid").attr(
-        "background",
-        items.photoPath + "\\" + tempPhotoArray[tempPhotoArrayCountCurrent]
-      ); // go to the next image or the 0 index image
+        // Calculate previous index
+        currentIndex = (currentIndex - 1 + photos.length) % photos.length;
+
+        // Save the new index
+        chrome.storage.sync.set(
+          {
+            photoArrayCountCurrent: currentIndex,
+          },
+          function () {
+            // Update the background with the new image
+            useExplicitFilePaths({
+              ...syncItems,
+              photoArrayCountCurrent: currentIndex,
+            });
+          }
+        );
+      }
+    }
+  );
+}
+
+// Navigate to previous encoded image
+function previousEncodedImage() {
+  chrome.storage.local.get(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+      useDefaultBackground: false,
+    },
+    function (items) {
+      // If using default background or no images, don't do anything
+      if (
+        items.useDefaultBackground ||
+        !items.backgroundImages ||
+        items.backgroundImages.length === 0
+      ) {
+        return;
+      }
+
+      // Get current index
+      let currentIndex = items.photoArrayCountCurrent;
+
+      // Calculate previous index
+      currentIndex =
+        (currentIndex - 1 + items.backgroundImages.length) %
+        items.backgroundImages.length;
+
+      // Set the background image
+      $("#bodyid").css(
+        "background-image",
+        `url(${items.backgroundImages[currentIndex].data})`
+      );
+      $("#bodyid").css("background-color", ""); // Clear any background color
+
+      // Save the new current index
+      chrome.storage.local.set(
+        {
+          photoArrayCountCurrent: currentIndex,
+          useDefaultBackground: false, // Explicitly set we're not using default background
+          photoSourceType: "encoded", // Mark that we're using encoded images
+        },
+        function () {
+          // Refresh background images data display after changing
+          loadBackgroundImagesData();
+        }
+      );
     }
   );
 }
@@ -381,10 +602,15 @@ function nextOrPreviousImageInChromeStorageArray(incrementor) {
 function getStoredData() {
   chrome.storage.sync.get(
     {
-      photoPath: "file:///C:/Users/dhudman/Pictures/Personal/Friends",
+      //   "derick-daily-xw69fz33sKg-unsplash.jpg",
+      // "derick-daily-q4FECjMUJcQ-unsplash.jpg",
+      // "derick-daily-XZ9MYpc6m1c-unsplash.jpg",
+      // "derick-daily-jjels-xl_Cs-unsplash.jpg",
+      // "derick-daily-F2KiEijf6-8-unsplash.jpg"
+      photoPath: "file:////Users/dhudman/Pictures/backgrounds",
       photoArrayCountTotal: 0,
       photoArrayCountCurrent: 0,
-      photoArray: "IMG_1869.JPG",
+      photoArray: "derick-daily-xw69fz33sKg-unsplash.jpg",
     },
     function (items) {
       $("#bodyid").attr(
@@ -563,15 +789,15 @@ document.addEventListener("DOMContentLoaded", function () {
   // countImagesInFolder();
   displayTime();
   // getStoredData(); // Replace with our new function
-  loadInitialBackgroundImage();
+  checkAndLoadBackgroundImage(); // Replace loadInitialBackgroundImage with our new function
   displayWeatherData();
   var myVar = setInterval(displayTime, 1000);
   // Refresh weather every 30 minutes
   // setInterval(displayWeatherData, 1800000);
   // nextImage();
 
-  // Set up automatic background rotation every 5 minutes
-  setInterval(loadBackgroundImage, 300000);
+  // Removing the automatic background rotation
+  // setInterval(loadBackgroundImage, 300000);
 });
 
 // ... existing code ...
@@ -666,18 +892,27 @@ function toggleNotesVisibility(storageKey, elementSelector) {
     },
     function (items) {
       const newVisibility = !items[storageKey];
-      chrome.storage.sync.set(
-        {
-          [storageKey]: newVisibility,
-        },
-        function () {
-          if (newVisibility) {
-            $(elementSelector).show();
-          } else {
-            $(elementSelector).hide();
-          }
-        }
-      );
+
+      if (newVisibility) {
+        $(elementSelector).show();
+        const toggleBtn =
+          elementSelector === "#notes"
+            ? $("#toggleTopNotes")
+            : $("#toggleBottomNotes");
+        toggleBtn.text("Hide Notes");
+      } else {
+        // Simply hide the notes without asking to clear them
+        $(elementSelector).hide();
+        const toggleBtn =
+          elementSelector === "#notes"
+            ? $("#toggleTopNotes")
+            : $("#toggleBottomNotes");
+        toggleBtn.text("Show Notes");
+      }
+
+      chrome.storage.sync.set({
+        [storageKey]: newVisibility,
+      });
     }
   );
 }
@@ -686,9 +921,13 @@ function toggleNotesVisibility(storageKey, elementSelector) {
 // 0 = active, 1 = deleted
 let viewMode = 0;
 let todosVisible = true;
+let currentProjectId = "all"; // Default to showing all projects
 
 // TODO Feature functions
 function initTodos() {
+  // Initialize projects first
+  initProjects();
+
   // Load saved TODOs from storage
   chrome.storage.sync.get(
     {
@@ -705,81 +944,236 @@ function initTodos() {
       items.deletedTodos.forEach((todo) => {
         renderTodo(todo, true);
       });
+
+      // Make sure project controls are visible when in active view mode
+      if (viewMode === 0) {
+        $("#projectControls").show();
+      }
     }
   );
 }
 
-function toggleTodoView() {
-  if (viewMode === 0) {
-    // Switch to deleted view
-    viewMode = 1;
-    $("#toggleTodoViewBtn").text("Back");
-    $("#activeTodosContainer").hide();
-    $("#deletedTodosContainer").show();
-    $("#allTodosContainer").hide();
-    $("#addTodoBtn").hide();
-  } else {
-    // Switch to active view
-    viewMode = 0;
-    $("#toggleTodoViewBtn").text("Settings");
-    $("#activeTodosContainer").show();
-    $("#deletedTodosContainer").hide();
-    $("#allTodosContainer").hide();
-    $("#addTodoBtn").show();
-  }
-}
+// Initialize projects functionality
+function initProjects() {
+  // Load saved projects from storage
+  chrome.storage.sync.get(
+    {
+      projects: [], // Default empty array
+      currentProjectId: "all", // Default to "all" projects
+    },
+    function (items) {
+      // Set the current project ID from storage
+      currentProjectId = items.currentProjectId;
 
-function toggleTodosVisibility(setVisible) {
-  // If setVisible is provided, use it, otherwise toggle current state
-  if (setVisible !== undefined) {
-    todosVisible = setVisible;
-  } else {
-    todosVisible = !todosVisible;
-  }
+      // Create project selector dropdown
+      createProjectSelector(items.projects);
 
-  if (todosVisible) {
-    // Show TODOs
-    $("#todoContainer").css({
-      width: "250px",
-      "max-height": "80vh",
-      "overflow-y": "auto",
-    });
-    $("#toggleTodosVisibilityBtn").text("Hide TODOs");
-    $("#activeTodosContainer").show();
-    if (viewMode === 1) {
-      $("#deletedTodosContainer").show();
+      // Set the selector to the saved project
+      const projectSelector = document.getElementById("projectSelector");
+      if (projectSelector) {
+        projectSelector.value = currentProjectId;
+      }
+
+      // Add button for creating new projects
+      createNewProjectButton();
+
+      // Add a tooltip about right-clicking TODOs to assign projects
+      addProjectTooltip();
+
+      // Show the project controls in active view
+      if (viewMode === 0) {
+        $("#projectControls").show();
+      }
+
+      // Refresh the todo list to show the correct project's todos
+      refreshTodoList();
     }
-    $("#addTodoBtn").show();
-  } else {
-    // Hide TODOs
-    $("#todoContainer").css({
-      width: "auto",
-      "max-height": "none",
-      "overflow-y": "visible",
-    });
-    $("#toggleTodosVisibilityBtn").text("Show TODOs");
-    $("#activeTodosContainer").hide();
-    $("#deletedTodosContainer").hide();
-    $("#allTodosContainer").hide();
-    $("#addTodoBtn").hide();
-  }
-
-  // Save visibility state
-  chrome.storage.sync.set({
-    todosVisible: todosVisible,
-  });
+  );
 }
 
+// Create the project selector dropdown
+function createProjectSelector(projects) {
+  // Create the container for the project selector
+  const selectorContainer = document.createElement("div");
+  selectorContainer.id = "projectSelectorContainer";
+  selectorContainer.style.marginBottom = "10px";
+
+  // Create label for the dropdown
+  const label = document.createElement("label");
+  label.htmlFor = "projectSelector";
+  label.textContent = "Project: ";
+  label.style.marginRight = "5px";
+  label.style.color = "white";
+
+  // Create the dropdown
+  const select = document.createElement("select");
+  select.id = "projectSelector";
+  select.style.padding = "5px";
+  select.style.borderRadius = "4px";
+  select.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  select.style.color = "white";
+  select.style.border = "none";
+
+  // Add "All Projects" option
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "All Projects";
+  select.appendChild(allOption);
+
+  // Add "No Project" option for TODOs without a project
+  const noProjectOption = document.createElement("option");
+  noProjectOption.value = "none";
+  noProjectOption.textContent = "No Project";
+  select.appendChild(noProjectOption);
+
+  // Add options for each project
+  projects.forEach((project) => {
+    const option = document.createElement("option");
+    option.value = project.id;
+    option.textContent = project.name;
+    select.appendChild(option);
+  });
+
+  // Add change event listener
+  select.addEventListener("change", function () {
+    currentProjectId = this.value;
+    refreshTodoList();
+
+    // Save the current project selection to Chrome storage
+    chrome.storage.sync.set({
+      currentProjectId: currentProjectId,
+    });
+  });
+
+  // Add elements to container
+  selectorContainer.appendChild(label);
+  selectorContainer.appendChild(select);
+
+  // Add to the project controls container
+  const projectControls = document.getElementById("projectControls");
+  projectControls.innerHTML = ""; // Clear existing content
+  projectControls.appendChild(selectorContainer);
+  projectControls.style.display = "block"; // Make it visible
+}
+
+// Create button for adding new projects
+function createNewProjectButton() {
+  // Create the new project button
+  const newProjectBtn = document.createElement("button");
+  newProjectBtn.id = "addProjectBtn";
+  newProjectBtn.textContent = "+Project";
+  newProjectBtn.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  newProjectBtn.style.color = "white";
+  newProjectBtn.style.border = "none";
+  newProjectBtn.style.padding = "8px 10px";
+  newProjectBtn.style.borderRadius = "5px";
+  newProjectBtn.style.cursor = "pointer";
+  newProjectBtn.style.fontSize = "14px";
+  newProjectBtn.style.marginRight = "5px";
+
+  // Add click event listener
+  newProjectBtn.addEventListener("click", function () {
+    createNewProject();
+  });
+
+  // Add to the control buttons container
+  const todoControlsTop = document.getElementById("todoControlsTop");
+  if (todoControlsTop) {
+    // Insert before the toggle visibility button
+    todoControlsTop.insertBefore(
+      newProjectBtn,
+      document.getElementById("toggleTodosVisibilityBtn")
+    );
+  } else {
+    console.error("todoControlsTop container not found");
+  }
+}
+
+// Function to create a new project
+function createNewProject() {
+  // Prompt for project name
+  const projectName = prompt("Enter a name for the new project:");
+
+  if (projectName && projectName.trim() !== "") {
+    // Generate a unique ID for the project
+    const projectId = "project_" + Date.now();
+
+    // Create the project object
+    const project = {
+      id: projectId,
+      name: projectName.trim(),
+      createdAt: Date.now(),
+    };
+
+    // Save the project
+    saveProject(project);
+
+    // Update the project selector
+    addProjectToSelector(project);
+
+    // Select the new project
+    document.getElementById("projectSelector").value = projectId;
+    currentProjectId = projectId;
+
+    // Save the current project selection to Chrome storage
+    chrome.storage.sync.set({
+      currentProjectId: currentProjectId,
+    });
+
+    refreshTodoList();
+  }
+}
+
+// Add a new project to the selector dropdown
+function addProjectToSelector(project) {
+  const selector = document.getElementById("projectSelector");
+
+  // Create new option
+  const option = document.createElement("option");
+  option.value = project.id;
+  option.textContent = project.name;
+
+  // Add after the "No Project" option
+  selector.appendChild(option);
+}
+
+// Save a project to storage
+function saveProject(project) {
+  chrome.storage.sync.get(
+    {
+      projects: [],
+    },
+    function (items) {
+      // Add the new project to the array
+      const projects = items.projects;
+      projects.push(project);
+
+      // Save the updated array
+      chrome.storage.sync.set({
+        projects: projects,
+      });
+    }
+  );
+}
+
+// Update the createNewTodo function to include project association
 function createNewTodo() {
   // Generate a unique ID for the new TODO
   const id = "todo_" + Date.now();
+
+  // Get the current project (if not 'all' or 'none')
+  const projectId =
+    currentProjectId !== "all" && currentProjectId !== "none"
+      ? currentProjectId
+      : null;
 
   // Create a new TODO object
   const todo = {
     id: id,
     title: "",
     description: "",
-    expanded: false, // Changed to false - collapsed by default
+    expanded: false,
+    projectId: projectId, // Associate with current project if applicable
     createdAt: Date.now(),
   };
 
@@ -790,7 +1184,18 @@ function createNewTodo() {
   saveTodo(todo);
 }
 
+// Update the renderTodo function to properly handle line breaks in descriptions
 function renderTodo(todo, isDeleted) {
+  // If filtering by project and this todo doesn't match, don't render
+  if (!isDeleted && currentProjectId !== "all") {
+    if (
+      (currentProjectId === "none" && todo.projectId) ||
+      (currentProjectId !== "none" && todo.projectId !== currentProjectId)
+    ) {
+      return;
+    }
+  }
+
   // Create the TODO element
   const todoEl = document.createElement("div");
   todoEl.id = todo.id;
@@ -803,11 +1208,105 @@ function renderTodo(todo, isDeleted) {
   todoEl.style.transition = "all 0.3s ease";
   todoEl.style.marginBottom = "5px"; // Add 5px vertical spacing between TODOs
 
+  // Create project label and add context menu for project assignment
+  if (!isDeleted) {
+    // Right-click context menu for project assignment
+    todoEl.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      showProjectContextMenu(e, todo);
+    });
+
+    // Add project label if it has a project
+    if (todo.projectId) {
+      chrome.storage.sync.get(
+        {
+          projects: [],
+        },
+        function (items) {
+          const project = items.projects.find((p) => p.id === todo.projectId);
+          if (project) {
+            // Create project label
+            const projectLabel = document.createElement("div");
+            projectLabel.className = "todo-project-label";
+            projectLabel.textContent = project.name;
+            projectLabel.style.position = "absolute";
+            projectLabel.style.top = "5px";
+            projectLabel.style.right = "30px"; // Position to the left of delete button
+            projectLabel.style.fontSize = "11px";
+            projectLabel.style.color = "#555";
+            projectLabel.style.backgroundColor = "rgba(255,255,255,0.7)";
+            projectLabel.style.padding = "2px 6px";
+            projectLabel.style.borderRadius = "3px";
+
+            // Add the label to the todo
+            todoEl.appendChild(projectLabel);
+          }
+        }
+      );
+    }
+  }
+
   // Create a container for the title row
   const titleRow = document.createElement("div");
   titleRow.style.display = "flex";
   titleRow.style.justifyContent = "space-between";
   titleRow.style.alignItems = "center";
+
+  // Container for left side controls (reorder buttons and toggle)
+  const leftControls = document.createElement("div");
+  leftControls.style.display = "flex";
+  leftControls.style.alignItems = "center";
+
+  // Only add reordering buttons for active todos
+  if (!isDeleted) {
+    // Create the reordering controls
+    const reorderControls = document.createElement("div");
+    reorderControls.style.display = "flex";
+    reorderControls.style.flexDirection = "column";
+    reorderControls.style.marginRight = "5px";
+
+    // Add up button
+    const upButton = document.createElement("button");
+    upButton.textContent = "^";
+    upButton.style.background = "transparent";
+    upButton.style.border = "none";
+    upButton.style.color = "#555";
+    upButton.style.fontSize = "14px";
+    upButton.style.padding = "0 5px";
+    upButton.style.cursor = "pointer";
+    upButton.style.lineHeight = "1";
+    upButton.title = "Move up";
+
+    // Add down button
+    const downButton = document.createElement("button");
+    downButton.textContent = "v";
+    downButton.style.background = "transparent";
+    downButton.style.border = "none";
+    downButton.style.color = "#555";
+    downButton.style.fontSize = "14px";
+    downButton.style.padding = "0 5px";
+    downButton.style.cursor = "pointer";
+    downButton.style.lineHeight = "1";
+    downButton.title = "Move down";
+
+    // Add event listeners for reordering
+    upButton.addEventListener("click", function (e) {
+      e.stopPropagation(); // Prevent bubbling
+      moveTodoUp(todo.id);
+    });
+
+    downButton.addEventListener("click", function (e) {
+      e.stopPropagation(); // Prevent bubbling
+      moveTodoDown(todo.id);
+    });
+
+    // Add buttons to reorder controls
+    reorderControls.appendChild(upButton);
+    reorderControls.appendChild(downButton);
+
+    // Add reorder controls to left controls
+    leftControls.appendChild(reorderControls);
+  }
 
   // Create a toggle button to expand/collapse or recover
   const toggleBtn = document.createElement("button");
@@ -829,6 +1328,9 @@ function renderTodo(todo, isDeleted) {
   toggleBtn.style.height = "24px";
   toggleBtn.style.lineHeight = "1";
   toggleBtn.style.padding = "0";
+
+  // Add toggle button to left controls
+  leftControls.appendChild(toggleBtn);
 
   // Create the title element
   const titleEl = document.createElement("div");
@@ -863,37 +1365,53 @@ function renderTodo(todo, isDeleted) {
     });
   }
 
-  // Add title and toggle button to title row
-  titleRow.appendChild(toggleBtn);
+  // Add left controls and title to title row
+  titleRow.appendChild(leftControls);
   titleRow.appendChild(titleEl);
 
   // Create description element (only visible when expanded)
-  const descEl = document.createElement("div");
+  const descEl = document.createElement("textarea");
   descEl.className = "todo-description";
-  descEl.contentEditable = !isDeleted; // Only editable if not deleted
   descEl.style.display = !isDeleted && todo.expanded ? "block" : "none";
   descEl.style.marginTop = "5px";
   descEl.style.outline = "none";
-  descEl.textContent = todo.description;
+  descEl.style.whiteSpace = "pre-wrap"; // Preserve line breaks
+  descEl.style.wordBreak = "break-word"; // Ensure long words wrap properly
+  descEl.style.width = "100%";
+  descEl.style.minHeight = "60px";
+  descEl.style.resize = "vertical";
+  descEl.style.border = "none";
+  descEl.style.backgroundColor = "transparent";
+  descEl.style.fontFamily = "inherit";
+  descEl.style.fontSize = "inherit";
+  descEl.style.padding = "5px";
+  descEl.style.boxSizing = "border-box";
+
+  // Set the description content
+  if (todo.description) {
+    descEl.value = todo.description; // Use value for textarea
+  } else {
+    descEl.value = "";
+  }
+
   if (todo.description === "" && !isDeleted) {
-    descEl.dataset.placeholder = "Click to edit description";
+    descEl.placeholder = "Click to edit description";
     descEl.style.color = "#999";
   }
 
   // Handle description edit (save on blur) - only for active todos
   if (!isDeleted) {
     descEl.addEventListener("focus", function () {
-      if (
-        this.textContent === "" &&
-        this.style.color === "rgb(153, 153, 153)"
-      ) {
+      if (this.value === "" && this.style.color === "rgb(153, 153, 153)") {
         this.style.color = "";
       }
     });
 
     descEl.addEventListener("blur", function () {
-      todo.description = this.textContent;
-      if (this.textContent === "") {
+      // Get the content and preserve line breaks
+      const content = this.value; // Use value for textarea
+      todo.description = content;
+      if (content === "") {
         this.style.color = "#999";
       }
       updateTodo(todo);
@@ -965,6 +1483,12 @@ function saveTodo(todo) {
       todos: [],
     },
     function (items) {
+      // Ensure we're preserving line breaks in the description
+      if (todo.description) {
+        // Make sure we're not losing any line breaks
+        todo.description = todo.description;
+      }
+
       // Add the new TODO to the array
       const todos = items.todos;
       todos.push(todo);
@@ -988,12 +1512,26 @@ function updateTodo(updatedTodo) {
       const index = todos.findIndex((todo) => todo.id === updatedTodo.id);
 
       if (index !== -1) {
+        // Ensure we're preserving line breaks in the description
+        if (updatedTodo.description) {
+          // Make sure we're not losing any line breaks
+          updatedTodo.description = updatedTodo.description;
+        }
+
         todos[index] = updatedTodo;
 
         // Save the updated array
-        chrome.storage.sync.set({
-          todos: todos,
-        });
+        chrome.storage.sync.set(
+          {
+            todos: todos,
+          },
+          function () {
+            // Refresh the todo list to reflect changes (if in active mode)
+            if (viewMode === 0) {
+              refreshTodoList();
+            }
+          }
+        );
       }
     }
   );
@@ -1113,15 +1651,17 @@ function exportAsJson() {
       bottomNotes: "Click to add bottom notes",
       todos: [],
       deletedTodos: [],
+      projects: [], // Add projects to export
     },
     function (items) {
-      // Create an object with all the data
+      // Create a deep copy of the data to avoid modifying the original
       const exportData = {
         greeting: items.greeting,
         notes: items.notes,
         bottomNotes: items.bottomNotes,
-        todos: items.todos,
-        deletedTodos: items.deletedTodos,
+        todos: JSON.parse(JSON.stringify(items.todos)), // Deep copy to ensure proper serialization
+        deletedTodos: JSON.parse(JSON.stringify(items.deletedTodos)), // Deep copy to ensure proper serialization
+        projects: items.projects, // Include projects in export
       };
 
       // Convert to JSON with pretty formatting
@@ -1130,7 +1670,7 @@ function exportAsJson() {
       // Copy to clipboard
       copyToClipboard(jsonString);
 
-      // Show a temporary notification
+      // Show temporary notification
       showNotification("JSON data copied to clipboard!");
     }
   );
@@ -1304,7 +1844,8 @@ function validateJsonData(data) {
       data.hasOwnProperty("notes") ||
       data.hasOwnProperty("bottomNotes") ||
       data.hasOwnProperty("todos") ||
-      data.hasOwnProperty("deletedTodos"))
+      data.hasOwnProperty("deletedTodos") ||
+      data.hasOwnProperty("projects"))
   );
 }
 
@@ -1318,10 +1859,1057 @@ function updateStorageFromJson(data) {
   if (data.hasOwnProperty("notes")) updateData.notes = data.notes;
   if (data.hasOwnProperty("bottomNotes"))
     updateData.bottomNotes = data.bottomNotes;
-  if (data.hasOwnProperty("todos")) updateData.todos = data.todos;
-  if (data.hasOwnProperty("deletedTodos"))
-    updateData.deletedTodos = data.deletedTodos;
+
+  // Handle todos with proper line break preservation
+  if (data.hasOwnProperty("todos")) {
+    // Ensure we're working with a deep copy to avoid reference issues
+    updateData.todos = JSON.parse(JSON.stringify(data.todos));
+
+    // Ensure line breaks are preserved in todo descriptions
+    updateData.todos.forEach((todo) => {
+      if (todo.description) {
+        // Make sure line breaks are preserved
+        todo.description = todo.description;
+      }
+    });
+  }
+
+  // Handle deleted todos with proper line break preservation
+  if (data.hasOwnProperty("deletedTodos")) {
+    // Ensure we're working with a deep copy to avoid reference issues
+    updateData.deletedTodos = JSON.parse(JSON.stringify(data.deletedTodos));
+
+    // Ensure line breaks are preserved in todo descriptions
+    updateData.deletedTodos.forEach((todo) => {
+      if (todo.description) {
+        // Make sure line breaks are preserved
+        todo.description = todo.description;
+      }
+    });
+  }
+
+  if (data.hasOwnProperty("projects")) updateData.projects = data.projects;
 
   // Update storage
   chrome.storage.sync.set(updateData);
+}
+
+// Function to move a todo up in the list
+function moveTodoUp(todoId) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      const todos = items.todos;
+      const index = todos.findIndex((todo) => todo.id === todoId);
+
+      // If not found or already at top, do nothing
+      if (index <= 0) return;
+
+      // Swap with the todo above it
+      const temp = todos[index];
+      todos[index] = todos[index - 1];
+      todos[index - 1] = temp;
+
+      // Save the updated order
+      chrome.storage.sync.set(
+        {
+          todos: todos,
+        },
+        function () {
+          // Refresh the todo list UI
+          refreshTodoList();
+        }
+      );
+    }
+  );
+}
+
+// Function to move a todo down in the list
+function moveTodoDown(todoId) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      const todos = items.todos;
+      const index = todos.findIndex((todo) => todo.id === todoId);
+
+      // If not found or already at bottom, do nothing
+      if (index === -1 || index >= todos.length - 1) return;
+
+      // Swap with the todo below it
+      const temp = todos[index];
+      todos[index] = todos[index + 1];
+      todos[index + 1] = temp;
+
+      // Save the updated order
+      chrome.storage.sync.set(
+        {
+          todos: todos,
+        },
+        function () {
+          // Refresh the todo list UI
+          refreshTodoList();
+        }
+      );
+    }
+  );
+}
+
+// Function to refresh the todo list UI
+function refreshTodoList() {
+  // Only refresh active todos if we're in active view
+  if (viewMode === 0) {
+    // Clear the todo list container
+    const todoList = document.getElementById("todoList");
+    todoList.innerHTML = "";
+
+    // Re-render all todos based on current project filter
+    chrome.storage.sync.get(
+      {
+        todos: [],
+      },
+      function (items) {
+        items.todos.forEach((todo) => {
+          // Only render todos that match the current project filter
+          if (
+            currentProjectId === "all" ||
+            (currentProjectId === "none" && !todo.projectId) ||
+            todo.projectId === currentProjectId
+          ) {
+            renderTodo(todo, false);
+          }
+        });
+      }
+    );
+  }
+}
+
+function toggleTodoView() {
+  if (viewMode === 0) {
+    // Switch to deleted view
+    viewMode = 1;
+    $("#toggleTodoViewBtn").text("Back");
+    $("#activeTodosContainer").hide();
+    $("#deletedTodosContainer").show();
+    $("#projectControls").hide();
+    $("#addTodoBtn").hide();
+  } else {
+    // Switch to active view
+    viewMode = 0;
+    $("#toggleTodoViewBtn").text("Settings");
+    $("#activeTodosContainer").show();
+    $("#deletedTodosContainer").hide();
+    $("#projectControls").show();
+    $("#addTodoBtn").show();
+  }
+}
+
+function toggleTodosVisibility(setVisible) {
+  // If setVisible is provided, use it, otherwise toggle current state
+  if (setVisible !== undefined) {
+    todosVisible = setVisible;
+  } else {
+    todosVisible = !todosVisible;
+  }
+
+  if (todosVisible) {
+    // Show TODOs
+    $("#todoContainer").css({
+      width: "250px",
+      "max-height": "80vh",
+      "overflow-y": "auto",
+    });
+    $("#toggleTodosVisibilityBtn").text("Hide TODOs");
+    $("#activeTodosContainer").show();
+    if (viewMode === 1) {
+      $("#deletedTodosContainer").show();
+    }
+    $("#addTodoBtn").show();
+  } else {
+    // Hide TODOs
+    $("#todoContainer").css({
+      width: "auto",
+      "max-height": "none",
+      "overflow-y": "visible",
+    });
+    $("#toggleTodosVisibilityBtn").text("Show");
+    $("#activeTodosContainer").hide();
+    $("#deletedTodosContainer").hide();
+    $("#allTodosContainer").hide();
+    $("#addTodoBtn").hide();
+  }
+
+  // Save visibility state
+  chrome.storage.sync.set({
+    todosVisible: todosVisible,
+  });
+}
+
+// Add a function to change a todo's project
+function changeTodoProject(todoId, projectId) {
+  chrome.storage.sync.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      // Find the todo
+      const todos = items.todos;
+      const index = todos.findIndex((todo) => todo.id === todoId);
+
+      if (index !== -1) {
+        // Update the project ID
+        todos[index].projectId = projectId === "none" ? null : projectId;
+
+        // Save the updated array
+        chrome.storage.sync.set(
+          {
+            todos: todos,
+          },
+          function () {
+            // Refresh the todo list
+            refreshTodoList();
+          }
+        );
+      }
+    }
+  );
+}
+
+// Function to show the project context menu
+function showProjectContextMenu(e, todo) {
+  // Remove any existing context menus
+  removeContextMenu();
+
+  // Create context menu
+  const contextMenu = document.createElement("div");
+  contextMenu.id = "projectContextMenu";
+  contextMenu.style.position = "absolute";
+  contextMenu.style.left = e.pageX + "px";
+  contextMenu.style.top = e.pageY + "px";
+  contextMenu.style.backgroundColor = "white";
+  contextMenu.style.border = "1px solid #ccc";
+  contextMenu.style.borderRadius = "5px";
+  contextMenu.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+  contextMenu.style.padding = "5px 0";
+  contextMenu.style.zIndex = "1000";
+
+  // Add header
+  const header = document.createElement("div");
+  header.textContent = "Assign to Project:";
+  header.style.padding = "5px 10px";
+  header.style.fontSize = "14px";
+  header.style.fontWeight = "bold";
+  header.style.borderBottom = "1px solid #eee";
+  contextMenu.appendChild(header);
+
+  // Add "No Project" option
+  const noProjectOption = document.createElement("div");
+  noProjectOption.className = "context-menu-item";
+  noProjectOption.textContent = "No Project";
+  noProjectOption.style.padding = "5px 10px";
+  noProjectOption.style.cursor = "pointer";
+  noProjectOption.style.fontSize = "13px";
+
+  noProjectOption.addEventListener("mouseenter", function () {
+    this.style.backgroundColor = "#f5f5f5";
+  });
+
+  noProjectOption.addEventListener("mouseleave", function () {
+    this.style.backgroundColor = "white";
+  });
+
+  noProjectOption.addEventListener("click", function () {
+    changeTodoProject(todo.id, "none");
+
+    // When changing to "No Project" through the context menu, also update current project filter
+    currentProjectId = "none";
+    document.getElementById("projectSelector").value = "none";
+
+    // Save the current project selection to Chrome storage
+    chrome.storage.sync.set({
+      currentProjectId: currentProjectId,
+    });
+
+    removeContextMenu();
+  });
+
+  contextMenu.appendChild(noProjectOption);
+
+  // Get all projects and add them to the menu
+  chrome.storage.sync.get(
+    {
+      projects: [],
+    },
+    function (items) {
+      if (items.projects.length > 0) {
+        // Add a separator
+        const separator = document.createElement("div");
+        separator.style.height = "1px";
+        separator.style.backgroundColor = "#eee";
+        separator.style.margin = "5px 0";
+        contextMenu.appendChild(separator);
+
+        // Add each project
+        items.projects.forEach((project) => {
+          const projectOption = document.createElement("div");
+          projectOption.className = "context-menu-item";
+          projectOption.textContent = project.name;
+          projectOption.style.padding = "5px 10px";
+          projectOption.style.cursor = "pointer";
+          projectOption.style.fontSize = "13px";
+
+          // Highlight current project
+          if (todo.projectId === project.id) {
+            projectOption.style.backgroundColor = "#e6f7ff";
+            projectOption.style.fontWeight = "bold";
+          }
+
+          projectOption.addEventListener("mouseenter", function () {
+            this.style.backgroundColor =
+              todo.projectId === project.id ? "#d1efff" : "#f5f5f5";
+          });
+
+          projectOption.addEventListener("mouseleave", function () {
+            this.style.backgroundColor =
+              todo.projectId === project.id ? "#e6f7ff" : "white";
+          });
+
+          projectOption.addEventListener("click", function () {
+            changeTodoProject(todo.id, project.id);
+
+            // When changing a todo's project through the context menu, also update current project filter
+            currentProjectId = project.id;
+            document.getElementById("projectSelector").value = project.id;
+
+            // Save the current project selection to Chrome storage
+            chrome.storage.sync.set({
+              currentProjectId: currentProjectId,
+            });
+
+            removeContextMenu();
+          });
+
+          contextMenu.appendChild(projectOption);
+        });
+
+        // Add option to create a new project
+        const separator2 = document.createElement("div");
+        separator2.style.height = "1px";
+        separator2.style.backgroundColor = "#eee";
+        separator2.style.margin = "5px 0";
+        contextMenu.appendChild(separator2);
+      }
+
+      // Add "New Project" option
+      const newProjectOption = document.createElement("div");
+      newProjectOption.className = "context-menu-item";
+      newProjectOption.textContent = "+ Create New Project";
+      newProjectOption.style.padding = "5px 10px";
+      newProjectOption.style.cursor = "pointer";
+      newProjectOption.style.fontSize = "13px";
+      newProjectOption.style.color = "#28a745";
+
+      newProjectOption.addEventListener("mouseenter", function () {
+        this.style.backgroundColor = "#f5f5f5";
+      });
+
+      newProjectOption.addEventListener("mouseleave", function () {
+        this.style.backgroundColor = "white";
+      });
+
+      newProjectOption.addEventListener("click", function () {
+        const projectName = prompt("Enter a name for the new project:");
+        if (projectName && projectName.trim() !== "") {
+          // Create and save the new project
+          const projectId = "project_" + Date.now();
+          const project = {
+            id: projectId,
+            name: projectName.trim(),
+            createdAt: Date.now(),
+          };
+
+          // Save the project to storage
+          saveProject(project);
+
+          // Update the selector UI
+          addProjectToSelector(project);
+
+          // Assign the todo to this project
+          changeTodoProject(todo.id, projectId);
+
+          // Show confirmation notification
+          showNotification(
+            "Todo assigned to new project: " + projectName.trim()
+          );
+        }
+        removeContextMenu();
+      });
+
+      contextMenu.appendChild(newProjectOption);
+
+      // Add the context menu to the document
+      document.body.appendChild(contextMenu);
+
+      // Add a click event listener to the document to remove the context menu when clicked outside
+      setTimeout(() => {
+        document.addEventListener("click", documentClickHandler);
+      }, 0);
+    }
+  );
+}
+
+// Function to remove the context menu
+function removeContextMenu() {
+  const existingMenu = document.getElementById("projectContextMenu");
+  if (existingMenu) {
+    existingMenu.remove();
+    document.removeEventListener("click", documentClickHandler);
+  }
+}
+
+// Click handler for document to remove context menu
+function documentClickHandler(e) {
+  const contextMenu = document.getElementById("projectContextMenu");
+  if (contextMenu && !contextMenu.contains(e.target)) {
+    removeContextMenu();
+  }
+}
+
+// Add a tooltip about right-clicking TODOs
+function addProjectTooltip() {
+  const tooltip = document.createElement("div");
+  tooltip.id = "projectTooltip";
+  tooltip.textContent = "Tip: Right-click on a TODO to assign it to a project";
+  tooltip.style.fontSize = "11px";
+  tooltip.style.color = "rgba(255,255,255,0.7)";
+  tooltip.style.textAlign = "center";
+  tooltip.style.padding = "5px";
+  tooltip.style.margin = "0 0 5px 0";
+
+  // Add to the project controls container
+  const projectControls = document.getElementById("projectControls");
+  projectControls.appendChild(tooltip);
+}
+
+// Function to set the default dark background
+function setDefaultBackground() {
+  $("#bodyid").css("background-image", "none");
+  $("#bodyid").css("background-color", "#2c3e50");
+
+  // Save the preference
+  chrome.storage.local.set(
+    {
+      useDefaultBackground: true,
+    },
+    function () {
+      // Refresh background images data display after changing
+      loadBackgroundImagesData();
+    }
+  );
+}
+
+// Function to initialize background images data display
+function initBackgroundImagesData() {
+  // Initially check from storage if the container should be visible
+  chrome.storage.local.get(
+    {
+      bgImagesDataVisible: false,
+    },
+    function (items) {
+      if (items.bgImagesDataVisible) {
+        $("#bgImagesDataContainer").show();
+        $("#toggleBgImagesData").text("Hide BG Images");
+      } else {
+        $("#bgImagesDataContainer").hide();
+        $("#toggleBgImagesData").text("Show BG Images");
+      }
+
+      // Load the background images data
+      loadBackgroundImagesData();
+    }
+  );
+}
+
+// Function to load and display background images data
+function loadBackgroundImagesData() {
+  // Get data from both storage types
+  chrome.storage.local.get(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+      useDefaultBackground: false,
+    },
+    function (localItems) {
+      // Now get data from sync storage for old-style format
+      chrome.storage.sync.get(
+        {
+          photoPath: null,
+          photoArray: null,
+          photoArrayCountCurrent: 0,
+        },
+        function (syncItems) {
+          const container = $("#bgImagesData");
+          container.empty();
+
+          // Add header
+          container.append(
+            "<h3 style='margin-top: 0; color: white;'>Background Images</h3>"
+          );
+
+          // Display current background status
+          const statusDiv = $("<div style='margin-bottom: 20px;'></div>");
+          if (localItems.useDefaultBackground) {
+            statusDiv.html("<b>Status:</b> Using default background");
+          } else {
+            statusDiv.html("<b>Status:</b> Using custom background");
+          }
+          container.append(statusDiv);
+
+          // Display info about both storage types
+          const localStorageDiv = $("<div style='margin-bottom: 10px;'></div>");
+          localStorageDiv.html("<b>Local Storage:</b>");
+
+          if (
+            localItems.backgroundImages &&
+            localItems.backgroundImages.length > 0
+          ) {
+            localStorageDiv.append(
+              $(`<div style='margin-left: 10px;'>
+                ${localItems.backgroundImages.length} images found<br>
+                Current index: ${localItems.photoArrayCountCurrent}
+              </div>`)
+            );
+          } else {
+            localStorageDiv.append(
+              $("<div style='margin-left: 10px;'>No images found</div>")
+            );
+          }
+          container.append(localStorageDiv);
+
+          // Old-style format info
+          const syncStorageDiv = $("<div style='margin-bottom: 20px;'></div>");
+          syncStorageDiv.html("<b>Sync Storage (Old Format):</b>");
+
+          if (syncItems.photoPath && syncItems.photoArray) {
+            const photos = Array.isArray(syncItems.photoArray)
+              ? syncItems.photoArray
+              : [syncItems.photoArray];
+
+            syncStorageDiv.append(
+              $(`<div style='margin-left: 10px;'>
+                Path: ${syncItems.photoPath}<br>
+                ${photos.length} images found<br>
+                Current index: ${syncItems.photoArrayCountCurrent}<br>
+                <span style='font-size: 11px; color: #aaa;'>${photos.join(
+                  ", "
+                )}</span>
+              </div>`)
+            );
+          } else {
+            syncStorageDiv.append(
+              $(
+                "<div style='margin-left: 10px;'>No old-format data found</div>"
+              )
+            );
+          }
+          container.append(syncStorageDiv);
+
+          // Add direct file access option
+          const directAccessDiv = $("<div></div>");
+          const useDirectButton = $("<button>")
+            .text("Use File Path Directly")
+            .css({
+              background: "#4CAF50",
+              color: "white",
+              border: "none",
+              padding: "8px 10px",
+              borderRadius: "5px",
+              cursor: "pointer",
+              marginTop: "10px",
+            })
+            .click(function () {
+              if (syncItems.photoPath && syncItems.photoArray) {
+                useExplicitFilePaths(syncItems);
+              } else {
+                useDirectFilePathAsFallback();
+              }
+            });
+
+          directAccessDiv.append(useDirectButton);
+          container.append(directAccessDiv);
+        }
+      );
+    }
+  );
+}
+
+// Function to toggle background images data visibility
+function toggleBgImagesDataVisibility() {
+  const container = $("#bgImagesDataContainer");
+  const isVisible = container.is(":visible");
+
+  if (isVisible) {
+    container.hide();
+    $("#toggleBgImagesData").text("Show BG Images");
+    chrome.storage.local.set({ bgImagesDataVisible: false });
+  } else {
+    container.show();
+    $("#toggleBgImagesData").text("Hide BG Images");
+    chrome.storage.local.set({ bgImagesDataVisible: true });
+
+    // Refresh the data when showing
+    loadBackgroundImagesData();
+  }
+}
+
+// Function to show raw Chrome storage data
+function showRawStorageData() {
+  // Create or get the storage data display container
+  let storageDataContainer = $("#storageDataContainer");
+
+  if (storageDataContainer.length === 0) {
+    // Create the container if it doesn't exist
+    storageDataContainer = $("<div>")
+      .attr("id", "storageDataContainer")
+      .css({
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        backgroundColor: "rgba(0, 0, 0, 0.9)",
+        color: "white",
+        padding: "20px",
+        borderRadius: "10px",
+        maxWidth: "80%",
+        maxHeight: "80%",
+        overflow: "auto",
+        zIndex: "1000",
+        fontFamily: "monospace",
+        fontSize: "12px",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+      })
+      .appendTo("body");
+
+    // Add close button
+    $("<button>")
+      .text("Close")
+      .css({
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        background: "rgba(255, 255, 255, 0.3)",
+        color: "white",
+        border: "none",
+        padding: "5px 10px",
+        borderRadius: "5px",
+        cursor: "pointer",
+      })
+      .click(function () {
+        storageDataContainer.remove();
+      })
+      .appendTo(storageDataContainer);
+
+    // Add header
+    $("<h3>")
+      .text("Chrome Storage Data")
+      .css({
+        marginTop: "0",
+        marginBottom: "15px",
+        borderBottom: "1px solid #555",
+        paddingBottom: "5px",
+      })
+      .appendTo(storageDataContainer);
+
+    // Create container for sync storage data
+    $("<div>")
+      .attr("id", "syncStorageData")
+      .css({
+        marginBottom: "20px",
+      })
+      .appendTo(storageDataContainer);
+
+    // Create container for local storage data
+    $("<div>").attr("id", "localStorageData").appendTo(storageDataContainer);
+
+    // Add container for action buttons
+    const actionButtons = $("<div>")
+      .css({
+        marginTop: "15px",
+        display: "flex",
+        gap: "10px",
+        justifyContent: "center",
+      })
+      .appendTo(storageDataContainer);
+
+    // Add migrate button
+    $("<button>")
+      .text("Migrate Images (Sync → Local)")
+      .css({
+        background: "#4CAF50",
+        color: "white",
+        border: "none",
+        padding: "8px 15px",
+        borderRadius: "5px",
+        cursor: "pointer",
+      })
+      .click(function () {
+        migrateBackgroundImages();
+      })
+      .appendTo(actionButtons);
+
+    // Add refresh button
+    $("<button>")
+      .text("Refresh Data")
+      .css({
+        background: "#2196F3",
+        color: "white",
+        border: "none",
+        padding: "8px 15px",
+        borderRadius: "5px",
+        cursor: "pointer",
+      })
+      .click(function () {
+        showRawStorageData();
+      })
+      .appendTo(actionButtons);
+  }
+
+  // Load and display sync storage data
+  chrome.storage.sync.get(null, function (syncItems) {
+    $("#syncStorageData").html(
+      "<h4 style='margin-bottom: 5px;'>chrome.storage.sync:</h4>" +
+        "<pre style='background-color: rgba(30, 30, 30, 0.7); padding: 10px; border-radius: 5px;'>" +
+        JSON.stringify(syncItems, null, 2) +
+        "</pre>"
+    );
+  });
+
+  // Load and display local storage data (which contains background images)
+  chrome.storage.local.get(null, function (localItems) {
+    // Create a copy of the data to prevent circular reference issues
+    const localItemsCopy = JSON.parse(JSON.stringify(localItems));
+
+    // Calculate total size of background images data
+    let totalSize = 0;
+    let imagesCount = 0;
+
+    if (
+      localItemsCopy.backgroundImages &&
+      Array.isArray(localItemsCopy.backgroundImages)
+    ) {
+      imagesCount = localItemsCopy.backgroundImages.length;
+
+      // For each image, calculate rough size based on data URL length
+      localItemsCopy.backgroundImages.forEach((img) => {
+        if (img.data) {
+          const imgSize = img.data.length * 0.75; // Rough estimate: base64 is ~4/3 the size of binary
+          totalSize += imgSize;
+          // Truncate data URL for display
+          img.data =
+            img.data.substring(0, 50) +
+            "... [truncated, full length: " +
+            img.data.length +
+            "]";
+        }
+      });
+    }
+
+    // Format size in KB or MB
+    let formattedSize = "0 KB";
+    if (totalSize > 0) {
+      if (totalSize > 1024 * 1024) {
+        formattedSize = (totalSize / (1024 * 1024)).toFixed(2) + " MB";
+      } else {
+        formattedSize = (totalSize / 1024).toFixed(2) + " KB";
+      }
+    }
+
+    // Create summary info
+    const summaryInfo = `<div style="margin-bottom: 10px;">
+      <b>Background Images: ${imagesCount}</b> (Total size: ~${formattedSize})
+      <br>Current Index: ${localItemsCopy.photoArrayCountCurrent || 0}
+      <br>Using Default Background: ${
+        localItemsCopy.useDefaultBackground ? "Yes" : "No"
+      }
+    </div>`;
+
+    $("#localStorageData").html(
+      "<h4 style='margin-bottom: 5px;'>chrome.storage.local:</h4>" +
+        summaryInfo +
+        "<pre style='background-color: rgba(30, 30, 30, 0.7); padding: 10px; border-radius: 5px;'>" +
+        JSON.stringify(localItemsCopy, null, 2) +
+        "</pre>"
+    );
+  });
+}
+
+// Function to migrate background images from sync to local storage
+function migrateBackgroundImages() {
+  // First, get data from sync storage
+  chrome.storage.sync.get(null, function (syncItems) {
+    // Check if we have background images in sync storage
+    if (
+      syncItems.backgroundImages &&
+      Array.isArray(syncItems.backgroundImages) &&
+      syncItems.backgroundImages.length > 0
+    ) {
+      // Get current local storage data
+      chrome.storage.local.get(null, function (localItems) {
+        // Prepare to update local storage with images from sync
+        const updatedLocalItems = {
+          ...localItems,
+          backgroundImages: syncItems.backgroundImages,
+          photoArrayCountCurrent: 0,
+          useDefaultBackground: false,
+        };
+
+        // Save to local storage
+        chrome.storage.local.set(updatedLocalItems, function () {
+          // Show success notification
+          showNotification(
+            `Migrated ${syncItems.backgroundImages.length} images from sync to local storage`
+          );
+
+          // Refresh the page to apply changes
+          setTimeout(function () {
+            location.reload();
+          }, 1500);
+        });
+      });
+    } else {
+      showNotification(
+        "No background images found in sync storage to migrate."
+      );
+    }
+  });
+}
+
+// New function to check both storage types for background images
+function checkAndLoadBackgroundImage() {
+  console.log("Checking for background images in both storage types...");
+
+  // Check if the user has explicitly set useDefaultBackground
+  chrome.storage.local.get(
+    {
+      useDefaultBackground: null, // null means not set yet
+      photoSourceType: null, // null means not determined yet
+      currentPhotoPath: null, // path to the current photo if using filesystem
+    },
+    function (preferences) {
+      console.log("Stored preferences:", preferences);
+
+      // If user has explicitly chosen to use default background, respect that
+      if (preferences.useDefaultBackground === true) {
+        console.log("User preference: default background");
+        setDefaultBackground();
+        return;
+      }
+
+      // If user was previously using filesystem source, try that first
+      if (
+        preferences.photoSourceType === "filesystem" &&
+        preferences.currentPhotoPath
+      ) {
+        console.log(
+          "Previously using filesystem source:",
+          preferences.currentPhotoPath
+        );
+        tryLoadFromFilesystem();
+        return;
+      }
+
+      // Try loading from all sources, starting with the most likely to succeed
+      tryLoadFromAllSources();
+    }
+  );
+}
+
+// This is the main function that tries multiple sources in order
+function tryLoadFromAllSources() {
+  console.log("Trying to load background from all sources...");
+
+  // First, try to use backgroundImages array in local storage (from options page uploads)
+  chrome.storage.local.get(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+    },
+    function (localItems) {
+      console.log("Checking local storage backgroundImages:", localItems);
+
+      if (
+        localItems.backgroundImages &&
+        localItems.backgroundImages.length > 0
+      ) {
+        console.log(
+          `Found ${localItems.backgroundImages.length} images in local storage`
+        );
+        loadInitialBackgroundImage();
+        return;
+      }
+
+      // Second, try to load from photoPath and photoArray in sync storage (filesystem paths)
+      tryLoadFromFilesystem();
+    }
+  );
+}
+
+// Try to load from filesystem paths stored in sync storage
+function tryLoadFromFilesystem() {
+  chrome.storage.sync.get(
+    {
+      photoPath: null,
+      photoArray: null,
+      photoArrayCountCurrent: 0,
+    },
+    function (syncItems) {
+      console.log("Checking sync storage for file paths:", syncItems);
+
+      if (syncItems.photoPath && syncItems.photoArray) {
+        console.log("Found file paths in sync storage:", syncItems);
+
+        // Try to use explicit file paths
+        if (useExplicitFilePaths(syncItems)) {
+          console.log("Successfully loaded background from file paths");
+          return;
+        }
+      }
+
+      // Third, try to use backgroundImages in sync storage (legacy location)
+      tryLoadFromSyncBackgroundImages();
+    }
+  );
+}
+
+// Try to load from backgroundImages array in sync storage (legacy location)
+function tryLoadFromSyncBackgroundImages() {
+  chrome.storage.sync.get(
+    {
+      backgroundImages: [],
+    },
+    function (syncItems) {
+      console.log("Checking sync storage for backgroundImages:", syncItems);
+
+      if (syncItems.backgroundImages && syncItems.backgroundImages.length > 0) {
+        console.log(
+          `Found ${syncItems.backgroundImages.length} images in sync storage backgroundImages`
+        );
+
+        // Migrate images from sync to local
+        chrome.storage.local.set(
+          {
+            backgroundImages: syncItems.backgroundImages,
+            photoArrayCountCurrent: 0,
+            useDefaultBackground: false,
+            photoSourceType: "encoded", // Mark that we're using encoded images
+          },
+          function () {
+            console.log("Images migrated from sync to local storage");
+            showNotification(
+              "Background images migrated from sync to local storage"
+            );
+
+            // Now load the background image from local storage
+            loadInitialBackgroundImage();
+          }
+        );
+        return;
+      }
+
+      // Finally, fall back to hardcoded path or default
+      console.log("No background images found in any storage, using fallback");
+      if (!useDirectFilePathAsFallback()) {
+        setDefaultBackground();
+      }
+    }
+  );
+}
+
+// Function to use explicit file paths from storage
+function useExplicitFilePaths(items) {
+  try {
+    let path = items.photoPath;
+    let photos = Array.isArray(items.photoArray)
+      ? items.photoArray
+      : [items.photoArray];
+    let index = items.photoArrayCountCurrent || 0;
+
+    if (index >= photos.length) index = 0;
+
+    // Handle both forward and backslash path separators
+    const separator = path.includes("/") ? "/" : "\\";
+    const endsWithSeparator = path.endsWith("/") || path.endsWith("\\");
+
+    // Construct the full path with proper separator
+    const photoPath = endsWithSeparator ? path : path + separator;
+    const photoFile = photos[index];
+    const fullPath = photoPath + photoFile;
+
+    console.log(`Setting background to: ${fullPath}`);
+
+    // Set the background image directly
+    $("#bodyid").css("background-image", `url(${fullPath})`);
+    $("#bodyid").css("background-color", "");
+
+    // Save that we're not using default background
+    chrome.storage.local.set(
+      {
+        useDefaultBackground: false,
+        currentPhotoPath: fullPath, // Store the current path for troubleshooting
+        photoSourceType: "filesystem", // Mark that we're using filesystem
+      },
+      function () {
+        // Show notification
+        showNotification(`Loaded background: ${photoFile}`);
+
+        // Update background images data
+        loadBackgroundImagesData();
+      }
+    );
+
+    return true; // Success
+  } catch (error) {
+    console.error("Error setting background from explicit path:", error);
+    return false; // Failed
+  }
+}
+
+// Function to use a direct file path as a last resort
+function useDirectFilePathAsFallback() {
+  try {
+    // Hardcoded path from your data
+    const fullPath =
+      "file:///Users/davidhudman/Pictures/backgrounds/derick-daily-xw69fz33sKg-unsplash.jpg";
+
+    console.log(`Setting background to fallback: ${fullPath}`);
+
+    // Set the background image directly
+    $("#bodyid").css("background-image", `url(${fullPath})`);
+    $("#bodyid").css("background-color", "");
+
+    // Save that we're not using default background
+    chrome.storage.local.set(
+      {
+        useDefaultBackground: false,
+        currentPhotoPath: fullPath,
+        photoSourceType: "filesystem",
+      },
+      function () {
+        // Show notification
+        showNotification("Loaded fallback background image");
+
+        // Update background images data
+        loadBackgroundImagesData();
+      }
+    );
+
+    return true; // Success
+  } catch (error) {
+    console.error("Error setting fallback background:", error);
+    return false; // Failed
+  }
 }

@@ -71,64 +71,144 @@ function saveOptions() {
   const zipcode = document.getElementById("zipcode").value;
   const stocks = document.getElementById("stocks").value;
 
-  // Prepare data for storage
-  const data = {
-    zip: zipcode,
-    stocks: stocks,
-    backgroundImages: selectedImages,
-    numberPhotos: selectedImages.length,
-  };
+  // Save basic settings to sync storage
+  chrome.storage.sync.set(
+    {
+      zip: zipcode,
+      stocks: stocks,
+    },
+    function () {
+      console.log("Basic settings saved to sync storage");
+    }
+  );
 
-  // Save to chrome.storage
-  chrome.storage.sync.set(data, function () {
+  // Save background images to local storage (they can be large)
+  if (selectedImages.length > 0) {
+    chrome.storage.local.set(
+      {
+        backgroundImages: selectedImages,
+        photoArrayCountCurrent: 0,
+        useDefaultBackground: false,
+      },
+      function () {
+        console.log(
+          `${selectedImages.length} background images saved to local storage`
+        );
+        showStatus("Settings and background images saved successfully!");
+      }
+    );
+  } else {
     showStatus("Settings saved successfully!");
-  });
+  }
 }
 
 // Restore options from chrome.storage
 function restoreOptions() {
+  // Get basic options from sync storage
   chrome.storage.sync.get(
     {
       // Default values
       zip: "",
       stocks: "",
-      backgroundImages: [],
-      numberPhotos: 0,
     },
-    function (items) {
+    function (syncItems) {
       // Populate form fields
-      document.getElementById("zipcode").value = items.zip;
-      document.getElementById("stocks").value = items.stocks;
+      document.getElementById("zipcode").value = syncItems.zip;
+      document.getElementById("stocks").value = syncItems.stocks;
 
-      // Restore image previews if available
-      if (items.backgroundImages && items.backgroundImages.length > 0) {
-        selectedImages = items.backgroundImages;
+      // Get background images from local storage
+      chrome.storage.local.get(
+        {
+          backgroundImages: [],
+        },
+        function (localItems) {
+          // If no images in local storage, check sync storage (for backward compatibility)
+          if (
+            !localItems.backgroundImages ||
+            localItems.backgroundImages.length === 0
+          ) {
+            chrome.storage.sync.get(
+              {
+                backgroundImages: [],
+              },
+              function (oldSyncItems) {
+                if (
+                  oldSyncItems.backgroundImages &&
+                  oldSyncItems.backgroundImages.length > 0
+                ) {
+                  // Migrate images from sync to local
+                  selectedImages = oldSyncItems.backgroundImages;
 
-        // Show previews for stored images
-        const container = document.getElementById("imagePreviewContainer");
-        container.innerHTML = ""; // Clear container
+                  // Save to local storage
+                  chrome.storage.local.set(
+                    {
+                      backgroundImages: selectedImages,
+                      photoArrayCountCurrent: 0,
+                      useDefaultBackground: false,
+                    },
+                    function () {
+                      console.log(
+                        `Migrated ${selectedImages.length} images from sync to local storage`
+                      );
 
-        selectedImages.forEach((image) => {
-          addImagePreview(image.data);
-        });
+                      // Display previews
+                      displayImagePreviews(selectedImages);
+                    }
+                  );
+                }
+              }
+            );
+          } else {
+            // Use images from local storage
+            selectedImages = localItems.backgroundImages;
 
-        showStatus(`${selectedImages.length} saved background images loaded`);
-      }
+            // Display previews
+            displayImagePreviews(selectedImages);
+          }
+        }
+      );
     }
   );
 }
 
+// Helper function to display image previews
+function displayImagePreviews(images) {
+  if (images && images.length > 0) {
+    // Show previews for stored images
+    const container = document.getElementById("imagePreviewContainer");
+    container.innerHTML = ""; // Clear container
+
+    images.forEach((image) => {
+      addImagePreview(image.data);
+    });
+
+    showStatus(`${images.length} saved background images loaded`);
+  }
+}
+
 // Restore default settings
 function restoreDefaults() {
-  // Set default values
+  // Set default values in sync storage
   chrome.storage.sync.set(
     {
       zip: "",
       stocks: "",
-      backgroundImages: [],
-      numberPhotos: 0,
     },
     function () {
+      console.log("Default basic settings restored");
+    }
+  );
+
+  // Clear background images in local storage
+  chrome.storage.local.set(
+    {
+      backgroundImages: [],
+      photoArrayCountCurrent: 0,
+      useDefaultBackground: true,
+    },
+    function () {
+      console.log("Background images cleared from local storage");
+
       // Clear image previews
       document.getElementById("imagePreviewContainer").innerHTML = "";
       selectedImages = [];

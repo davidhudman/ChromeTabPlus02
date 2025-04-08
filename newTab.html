@@ -85,6 +85,7 @@
       "
     >
       <div
+        id="todoControlsTop"
         style="
           display: flex;
           align-items: center;
@@ -123,7 +124,7 @@
             margin-right: 5px;
           "
         >
-          Hide TODOs
+          Hide
         </button>
         <button
           id="addTodoBtn"
@@ -140,6 +141,9 @@
         >
           + Add Todo
         </button>
+      </div>
+      <div id="projectControls" style="margin-bottom: 10px; display: none">
+        <!-- Project selector will be dynamically added here -->
       </div>
       <div id="activeTodosContainer">
         <div id="todoList">
@@ -310,5 +314,62 @@
         Toggle Notes
       </button>
     </div>
+
+    <!-- Add new div for background images data in bottom left -->
+    <div
+      id="bgImagesDataContainer"
+      style="
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        text-align: left;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        max-width: 300px;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+      "
+    >
+      <div id="bgImagesData" style="margin-bottom: 10px">
+        <!-- Background images data will be dynamically added here -->
+      </div>
+    </div>
+
+    <button
+      id="toggleBgImagesData"
+      style="
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+      "
+    >
+      Show BG Images
+    </button>
+
+    <button
+      id="showRawStorageData"
+      style="
+        position: absolute;
+        bottom: 20px;
+        left: 130px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+      "
+    >
+      Show Raw Storage
+    </button>
   </body>
 </html>
