@@ -191,6 +191,9 @@ $(document).ready(function () {
   // Initialize the TODO feature
   initTodos();
 
+  // Check storage usage on startup
+  checkStorageUsage();
+
   // Add event listener for adding new TODOs
   $("#addTodoBtn").click(function () {
     createNewTodo();
@@ -219,6 +222,11 @@ $(document).ready(function () {
   // Add event listener for importing from JSON
   $("#importJsonBtn").click(function () {
     importFromJson();
+  });
+
+  // Add event listener for migrating TODOs from sync to local storage
+  $("#migrateTodosBtn").click(function () {
+    migrateTodosToLocal();
   });
 
   // Check if TODOs visibility state is stored
@@ -264,6 +272,39 @@ $(document).ready(function () {
   $("#showRawStorageData").click(function () {
     showRawStorageData();
   });
+
+  // Add event listener for checking storage usage
+  $("#checkStorageUsage").click(function () {
+    checkStorageUsage();
+  });
+
+  // Add event listeners for text size controls
+  $("#increaseClockSize").click(function () {
+    adjustTextSize("clock", 8);
+  });
+
+  $("#decreaseClockSize").click(function () {
+    adjustTextSize("clock", -8);
+  });
+
+  $("#resetClockSize").click(function () {
+    resetTextSize("clock");
+  });
+
+  $("#increaseGreetingSize").click(function () {
+    adjustTextSize("greeting", 6);
+  });
+
+  $("#decreaseGreetingSize").click(function () {
+    adjustTextSize("greeting", -6);
+  });
+
+  $("#resetGreetingSize").click(function () {
+    resetTextSize("greeting");
+  });
+
+  // Initialize text sizes from storage
+  initTextSizes();
 });
 
 function doesFileExist() {
@@ -929,7 +970,7 @@ function initTodos() {
   initProjects();
 
   // Load saved TODOs from storage
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [], // Default empty array
       deletedTodos: [], // Default empty array for deleted todos
@@ -952,7 +993,7 @@ function initTodos() {
 // Initialize projects functionality
 function initProjects() {
   // Load saved projects from storage
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       projects: [], // Default empty array
       currentProjectId: "all", // Default to "all" projects
@@ -993,6 +1034,14 @@ function createProjectSelector(projects) {
   const selectorContainer = document.createElement("div");
   selectorContainer.id = "projectSelectorContainer";
   selectorContainer.style.marginBottom = "10px";
+  selectorContainer.style.display = "flex";
+  selectorContainer.style.flexDirection = "column";
+  selectorContainer.style.gap = "5px";
+
+  // Create row for the selector
+  const selectorRow = document.createElement("div");
+  selectorRow.style.display = "flex";
+  selectorRow.style.alignItems = "center";
 
   // Create label for the dropdown
   const label = document.createElement("label");
@@ -1009,6 +1058,7 @@ function createProjectSelector(projects) {
   select.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
   select.style.color = "white";
   select.style.border = "none";
+  select.style.flex = "1";
 
   // Add "All Projects" option
   const allOption = document.createElement("option");
@@ -1039,17 +1089,146 @@ function createProjectSelector(projects) {
     chrome.storage.sync.set({
       currentProjectId: currentProjectId,
     });
+
+    // Show/hide delete button based on selection
+    updateDeleteProjectButtonVisibility();
   });
 
-  // Add elements to container
-  selectorContainer.appendChild(label);
-  selectorContainer.appendChild(select);
+  // Add elements to selector row
+  selectorRow.appendChild(label);
+  selectorRow.appendChild(select);
+
+  // Add selector row to container
+  selectorContainer.appendChild(selectorRow);
+
+  // Create row for delete button
+  const deleteRow = document.createElement("div");
+  deleteRow.style.display = "flex";
+  deleteRow.style.justifyContent = "flex-end";
+
+  // Create delete project button
+  const deleteProjectBtn = document.createElement("button");
+  deleteProjectBtn.id = "deleteProjectBtn";
+  deleteProjectBtn.textContent = "Delete Current Project";
+  deleteProjectBtn.style.display = "none"; // Hidden by default
+  deleteProjectBtn.style.backgroundColor = "rgba(220, 53, 69, 0.8)";
+  deleteProjectBtn.style.color = "white";
+  deleteProjectBtn.style.border = "none";
+  deleteProjectBtn.style.padding = "5px 8px";
+  deleteProjectBtn.style.borderRadius = "4px";
+  deleteProjectBtn.style.fontSize = "12px";
+  deleteProjectBtn.style.cursor = "pointer";
+
+  // Add click event listener for delete button
+  deleteProjectBtn.addEventListener("click", function () {
+    deleteCurrentProject();
+  });
+
+  // Add delete button to delete row
+  deleteRow.appendChild(deleteProjectBtn);
+
+  // Add delete row to container
+  selectorContainer.appendChild(deleteRow);
 
   // Add to the project controls container
   const projectControls = document.getElementById("projectControls");
   projectControls.innerHTML = ""; // Clear existing content
   projectControls.appendChild(selectorContainer);
   projectControls.style.display = "block"; // Make it visible
+
+  // Set initial visibility of delete button
+  updateDeleteProjectButtonVisibility();
+}
+
+// Function to update delete project button visibility
+function updateDeleteProjectButtonVisibility() {
+  const deleteBtn = document.getElementById("deleteProjectBtn");
+  if (!deleteBtn) return;
+
+  // Only show delete button if a specific project is selected (not "all" or "none")
+  if (currentProjectId !== "all" && currentProjectId !== "none") {
+    deleteBtn.style.display = "block";
+  } else {
+    deleteBtn.style.display = "none";
+  }
+}
+
+// Function to delete the currently selected project
+function deleteCurrentProject() {
+  // Safety check
+  if (currentProjectId === "all" || currentProjectId === "none") {
+    showNotification("Cannot delete this selection");
+    return;
+  }
+
+  // Get the project name for confirmation
+  chrome.storage.sync.get(
+    {
+      projects: [],
+    },
+    function (items) {
+      const project = items.projects.find((p) => p.id === currentProjectId);
+      if (!project) {
+        showNotification("Project not found");
+        return;
+      }
+
+      if (
+        confirm(
+          `Are you sure you want to delete the project "${project.name}"? All todos will remain but will be unassigned from this project.`
+        )
+      ) {
+        // Delete the project
+        deleteProject(currentProjectId);
+      }
+    }
+  );
+}
+
+// Function to delete a project by ID
+function deleteProject(projectId) {
+  chrome.storage.local.get(
+    {
+      projects: [],
+      todos: [],
+      currentProjectId: "all",
+    },
+    function (items) {
+      // Remove the project from the projects array
+      const updatedProjects = items.projects.filter(
+        (project) => project.id !== projectId
+      );
+
+      // Update todos to remove this project association
+      const updatedTodos = items.todos.map((todo) => {
+        if (todo.projectId === projectId) {
+          return { ...todo, projectId: null };
+        }
+        return todo;
+      });
+
+      // Prepare update data
+      const updateData = {
+        projects: updatedProjects,
+        todos: updatedTodos,
+      };
+
+      // If the current project selection is the one being deleted, change it to "all"
+      if (items.currentProjectId === projectId) {
+        updateData.currentProjectId = "all";
+        currentProjectId = "all";
+      }
+
+      // Save the updated data
+      chrome.storage.local.set(updateData, function () {
+        // Refresh the UI
+        initProjects();
+
+        // Show confirmation
+        showNotification("Project deleted successfully");
+      });
+    }
+  );
 }
 
 // Create button for adding new projects
@@ -1135,7 +1314,7 @@ function addProjectToSelector(project) {
 
 // Save a project to storage
 function saveProject(project) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       projects: [],
     },
@@ -1145,7 +1324,7 @@ function saveProject(project) {
       projects.push(project);
 
       // Save the updated array
-      chrome.storage.sync.set({
+      chrome.storage.local.set({
         projects: projects,
       });
     }
@@ -1474,7 +1653,7 @@ function renderTodo(todo, isDeleted) {
 }
 
 function saveTodo(todo) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
     },
@@ -1489,16 +1668,28 @@ function saveTodo(todo) {
       const todos = items.todos;
       todos.push(todo);
 
-      // Save the updated array
-      chrome.storage.sync.set({
-        todos: todos,
-      });
+      // Save the updated array with error handling
+      chrome.storage.local.set(
+        {
+          todos: todos,
+        },
+        function () {
+          // Check for Chrome runtime errors
+          if (chrome.runtime.lastError) {
+            console.error("Storage error:", chrome.runtime.lastError);
+            showNotification(
+              "Storage error: " + chrome.runtime.lastError.message
+            );
+            return;
+          }
+        }
+      );
     }
   );
 }
 
 function updateTodo(updatedTodo) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
     },
@@ -1516,12 +1707,21 @@ function updateTodo(updatedTodo) {
 
         todos[index] = updatedTodo;
 
-        // Save the updated array
-        chrome.storage.sync.set(
+        // Save the updated array with error handling
+        chrome.storage.local.set(
           {
             todos: todos,
           },
           function () {
+            // Check for Chrome runtime errors
+            if (chrome.runtime.lastError) {
+              console.error("Storage error:", chrome.runtime.lastError);
+              showNotification(
+                "Storage error: " + chrome.runtime.lastError.message
+              );
+              return;
+            }
+
             // Refresh the todo list to reflect changes (if in active mode)
             if (viewMode === 0) {
               refreshTodoList();
@@ -1534,7 +1734,7 @@ function updateTodo(updatedTodo) {
 }
 
 function moveTodoToDeleted(todoId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
       deletedTodos: [],
@@ -1553,18 +1753,30 @@ function moveTodoToDeleted(todoId) {
         const deletedTodos = items.deletedTodos;
         deletedTodos.push(todoToDelete);
 
-        // Save both arrays
-        chrome.storage.sync.set({
-          todos: todos,
-          deletedTodos: deletedTodos,
-        });
+        // Save both arrays with error handling
+        chrome.storage.local.set(
+          {
+            todos: todos,
+            deletedTodos: deletedTodos,
+          },
+          function () {
+            // Check for Chrome runtime errors
+            if (chrome.runtime.lastError) {
+              console.error("Storage error:", chrome.runtime.lastError);
+              showNotification(
+                "Storage error: " + chrome.runtime.lastError.message
+              );
+              return;
+            }
+          }
+        );
       }
     }
   );
 }
 
 function recoverTodo(todoId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
       deletedTodos: [],
@@ -1583,13 +1795,22 @@ function recoverTodo(todoId) {
         const todos = items.todos;
         todos.push(todoToRecover);
 
-        // Save both arrays
-        chrome.storage.sync.set(
+        // Save both arrays with error handling
+        chrome.storage.local.set(
           {
             todos: todos,
             deletedTodos: deletedTodos,
           },
           function () {
+            // Check for Chrome runtime errors
+            if (chrome.runtime.lastError) {
+              console.error("Storage error:", chrome.runtime.lastError);
+              showNotification(
+                "Storage error: " + chrome.runtime.lastError.message
+              );
+              return;
+            }
+
             // Re-render the recovered todo in the active list
             if (viewMode === 0) {
               renderTodo(todoToRecover, false);
@@ -1602,7 +1823,7 @@ function recoverTodo(todoId) {
 }
 
 function permanentDeleteTodo(todoId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       deletedTodos: [],
     },
@@ -1613,7 +1834,7 @@ function permanentDeleteTodo(todoId) {
       );
 
       // Save the updated array
-      chrome.storage.sync.set({
+      chrome.storage.local.set({
         deletedTodos: deletedTodos,
       });
     }
@@ -1626,7 +1847,7 @@ function confirmPermanentDeleteAll() {
       "Are you sure you want to permanently delete ALL items in the trash? This cannot be undone."
     )
   ) {
-    chrome.storage.sync.set(
+    chrome.storage.local.set(
       {
         deletedTodos: [],
       },
@@ -1892,7 +2113,7 @@ function updateStorageFromJson(data) {
 
 // Function to move a todo up in the list
 function moveTodoUp(todoId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
     },
@@ -1909,7 +2130,7 @@ function moveTodoUp(todoId) {
       todos[index - 1] = temp;
 
       // Save the updated order
-      chrome.storage.sync.set(
+      chrome.storage.local.set(
         {
           todos: todos,
         },
@@ -1924,7 +2145,7 @@ function moveTodoUp(todoId) {
 
 // Function to move a todo down in the list
 function moveTodoDown(todoId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
     },
@@ -1941,7 +2162,7 @@ function moveTodoDown(todoId) {
       todos[index + 1] = temp;
 
       // Save the updated order
-      chrome.storage.sync.set(
+      chrome.storage.local.set(
         {
           todos: todos,
         },
@@ -1963,7 +2184,7 @@ function refreshTodoList() {
     todoList.innerHTML = "";
 
     // Re-render all todos based on current project filter
-    chrome.storage.sync.get(
+    chrome.storage.local.get(
       {
         todos: [],
       },
@@ -2046,7 +2267,7 @@ function toggleTodosVisibility(setVisible) {
 
 // Add a function to change a todo's project
 function changeTodoProject(todoId, projectId) {
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       todos: [],
     },
@@ -2060,7 +2281,7 @@ function changeTodoProject(todoId, projectId) {
         todos[index].projectId = projectId === "none" ? null : projectId;
 
         // Save the updated array
-        chrome.storage.sync.set(
+        chrome.storage.local.set(
           {
             todos: todos,
           },
@@ -2461,6 +2682,39 @@ function toggleBgImagesDataVisibility() {
   }
 }
 
+// Function to check storage usage and warn if approaching limits
+function checkStorageUsage() {
+  chrome.storage.sync.getBytesInUse(null, function (bytesInUse) {
+    const maxBytes = 102400; // 100KB limit for sync storage
+    const usagePercent = (bytesInUse / maxBytes) * 100;
+    const remainingBytes = maxBytes - bytesInUse;
+
+    console.log(
+      `Storage usage: ${bytesInUse} bytes (${usagePercent.toFixed(1)}%)`
+    );
+
+    let message = `Storage: ${(bytesInUse / 1024).toFixed(
+      1
+    )}KB used (${usagePercent.toFixed(1)}%), ${(remainingBytes / 1024).toFixed(
+      1
+    )}KB remaining`;
+
+    if (usagePercent > 95) {
+      message = `CRITICAL: ${message}. Export data immediately!`;
+      showNotification(message);
+    } else if (usagePercent > 90) {
+      message = `WARNING: ${message}. Consider exporting and cleaning up data.`;
+      showNotification(message);
+    } else if (usagePercent > 75) {
+      message = `CAUTION: ${message}. Monitor usage closely.`;
+      showNotification(message);
+    } else {
+      message = `OK: ${message}`;
+      showNotification(message);
+    }
+  });
+}
+
 // Function to show raw Chrome storage data
 function showRawStorageData() {
   // Create or get the storage data display container
@@ -2641,6 +2895,102 @@ function showRawStorageData() {
         "</pre>"
     );
   });
+}
+
+// Function to migrate TODOs and projects from sync to local storage
+function migrateTodosToLocal() {
+  if (
+    !confirm(
+      "This will migrate your TODOs and projects from sync storage to local storage for higher capacity. Continue?"
+    )
+  ) {
+    return;
+  }
+
+  chrome.storage.sync.get(
+    {
+      todos: [],
+      deletedTodos: [],
+      projects: [],
+      currentProjectId: "all",
+    },
+    function (syncItems) {
+      // Check if there's data to migrate
+      const hasData =
+        syncItems.todos.length > 0 ||
+        syncItems.deletedTodos.length > 0 ||
+        syncItems.projects.length > 0;
+
+      if (!hasData) {
+        showNotification("No TODO data found in sync storage to migrate.");
+        return;
+      }
+
+      // Get current local storage data
+      chrome.storage.local.get(
+        {
+          todos: [],
+          deletedTodos: [],
+          projects: [],
+          currentProjectId: "all",
+        },
+        function (localItems) {
+          // Merge data (local takes precedence for duplicates)
+          const mergedData = {
+            todos: [
+              ...localItems.todos,
+              ...syncItems.todos.filter(
+                (syncTodo) =>
+                  !localItems.todos.some(
+                    (localTodo) => localTodo.id === syncTodo.id
+                  )
+              ),
+            ],
+            deletedTodos: [
+              ...localItems.deletedTodos,
+              ...syncItems.deletedTodos.filter(
+                (syncTodo) =>
+                  !localItems.deletedTodos.some(
+                    (localTodo) => localTodo.id === syncTodo.id
+                  )
+              ),
+            ],
+            projects: [
+              ...localItems.projects,
+              ...syncItems.projects.filter(
+                (syncProject) =>
+                  !localItems.projects.some(
+                    (localProject) => localProject.id === syncProject.id
+                  )
+              ),
+            ],
+            currentProjectId:
+              localItems.currentProjectId || syncItems.currentProjectId,
+          };
+
+          // Save merged data to local storage
+          chrome.storage.local.set(mergedData, function () {
+            if (chrome.runtime.lastError) {
+              console.error("Migration error:", chrome.runtime.lastError);
+              showNotification(
+                "Migration failed: " + chrome.runtime.lastError.message
+              );
+              return;
+            }
+
+            showNotification(
+              `Migration successful! Migrated ${syncItems.todos.length} TODOs, ${syncItems.deletedTodos.length} deleted TODOs, and ${syncItems.projects.length} projects.`
+            );
+
+            // Refresh the page to load from local storage
+            setTimeout(function () {
+              location.reload();
+            }, 2000);
+          });
+        }
+      );
+    }
+  );
 }
 
 // Function to migrate background images from sync to local storage
@@ -2908,4 +3258,72 @@ function useDirectFilePathAsFallback() {
     console.error("Error setting fallback background:", error);
     return false; // Failed
   }
+}
+
+// Text size control functions
+function initTextSizes() {
+  chrome.storage.sync.get(
+    {
+      clockFontSize: 128,
+      greetingFontSize: 96,
+    },
+    function (items) {
+      // Apply stored font sizes
+      $("#time").css("font-size", items.clockFontSize + "px");
+      $("#helloText").css("font-size", items.greetingFontSize + "px");
+
+      // Update display values
+      $("#clockSizeDisplay").text(items.clockFontSize + "px");
+      $("#greetingSizeDisplay").text(items.greetingFontSize + "px");
+    }
+  );
+}
+
+function adjustTextSize(type, change) {
+  const storageKey = type === "clock" ? "clockFontSize" : "greetingFontSize";
+  const elementId = type === "clock" ? "#time" : "#helloText";
+  const displayId =
+    type === "clock" ? "#clockSizeDisplay" : "#greetingSizeDisplay";
+  const defaultSize = type === "clock" ? 128 : 96;
+  const minSize = type === "clock" ? 32 : 24;
+  const maxSize = type === "clock" ? 256 : 192;
+
+  chrome.storage.sync.get(
+    {
+      [storageKey]: defaultSize,
+    },
+    function (items) {
+      let newSize = items[storageKey] + change;
+
+      // Enforce min/max limits
+      if (newSize < minSize) newSize = minSize;
+      if (newSize > maxSize) newSize = maxSize;
+
+      // Apply the new size
+      $(elementId).css("font-size", newSize + "px");
+      $(displayId).text(newSize + "px");
+
+      // Save to storage
+      chrome.storage.sync.set({
+        [storageKey]: newSize,
+      });
+    }
+  );
+}
+
+function resetTextSize(type) {
+  const storageKey = type === "clock" ? "clockFontSize" : "greetingFontSize";
+  const elementId = type === "clock" ? "#time" : "#helloText";
+  const displayId =
+    type === "clock" ? "#clockSizeDisplay" : "#greetingSizeDisplay";
+  const defaultSize = type === "clock" ? 128 : 96;
+
+  // Apply default size
+  $(elementId).css("font-size", defaultSize + "px");
+  $(displayId).text(defaultSize + "px");
+
+  // Save to storage
+  chrome.storage.sync.set({
+    [storageKey]: defaultSize,
+  });
 }
