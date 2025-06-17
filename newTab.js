@@ -305,6 +305,9 @@ $(document).ready(function () {
 
   // Initialize text sizes from storage
   initTextSizes();
+
+  // Initialize countdown timer
+  initCountdownTimer();
 });
 
 function doesFileExist() {
@@ -976,8 +979,7 @@ function initTodos() {
       deletedTodos: [], // Default empty array for deleted todos
     },
     function (items) {
-      // Only render the deleted TODOs here since active ones are rendered by refreshTodoList()
-      // that gets called at the end of initProjects()
+      // Render the deleted TODOs
       items.deletedTodos.forEach((todo) => {
         renderTodo(todo, true);
       });
@@ -986,6 +988,9 @@ function initTodos() {
       if (viewMode === 0) {
         $("#projectControls").show();
       }
+
+      // Now refresh the todo list to show active todos with the correct project filter
+      refreshTodoList();
     }
   );
 }
@@ -999,20 +1004,43 @@ function initProjects() {
       currentProjectId: "all", // Default to "all" projects
     },
     function (items) {
-      // Set the current project ID from storage
-      currentProjectId = items.currentProjectId;
+      // Check if there's an "in progress" project and default to it if no current project is saved
+      let targetProjectId = items.currentProjectId;
+
+      // If currentProjectId is "all" (default), try to find "in progress" project
+      if (targetProjectId === "all") {
+        const inProgressProject = items.projects.find(
+          (p) => p.name.toLowerCase() === "in progress"
+        );
+        if (inProgressProject) {
+          targetProjectId = inProgressProject.id;
+        }
+      }
+
+      // Set the current project ID
+      currentProjectId = targetProjectId;
 
       // Create project selector dropdown
       createProjectSelector(items.projects);
 
-      // Set the selector to the saved project
+      // Set the selector to the target project
       const projectSelector = document.getElementById("projectSelector");
       if (projectSelector) {
         projectSelector.value = currentProjectId;
       }
 
+      // If we changed from the stored value, save the new selection
+      if (targetProjectId !== items.currentProjectId) {
+        chrome.storage.local.set({
+          currentProjectId: targetProjectId,
+        });
+      }
+
       // Add button for creating new projects
       createNewProjectButton();
+
+      // Update delete project button visibility
+      updateDeleteProjectButtonVisibility();
 
       // Add a tooltip about right-clicking TODOs to assign projects
       addProjectTooltip();
@@ -1021,9 +1049,6 @@ function initProjects() {
       if (viewMode === 0) {
         $("#projectControls").show();
       }
-
-      // Refresh the todo list to show the correct project's todos
-      refreshTodoList();
     }
   );
 }
@@ -1162,7 +1187,7 @@ function deleteCurrentProject() {
   }
 
   // Get the project name for confirmation
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       projects: [],
     },
@@ -1393,7 +1418,7 @@ function renderTodo(todo, isDeleted) {
 
     // Add project label if it has a project
     if (todo.projectId) {
-      chrome.storage.sync.get(
+      chrome.storage.local.get(
         {
           projects: [],
         },
@@ -2356,7 +2381,7 @@ function showProjectContextMenu(e, todo) {
   contextMenu.appendChild(noProjectOption);
 
   // Get all projects and add them to the menu
-  chrome.storage.sync.get(
+  chrome.storage.local.get(
     {
       projects: [],
     },
@@ -3326,4 +3351,337 @@ function resetTextSize(type) {
   chrome.storage.sync.set({
     [storageKey]: defaultSize,
   });
+}
+
+// Countdown Timer Variables
+let countdownInterval = null;
+let totalSeconds = 0;
+let isRunning = false;
+let isPaused = false;
+let isCountingUp = false;
+let countUpSeconds = 0;
+
+// Initialize countdown timer
+function initCountdownTimer() {
+  // Load saved timer state with fallback for non-extension environment
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.sync.get(
+      {
+        timerLabel: "Timer",
+        timerVisible: true,
+        lastTimerInput: "25:00",
+      },
+      function (items) {
+        $("#timerLabel").text(items.timerLabel);
+        $("#timeInput").val(items.lastTimerInput);
+
+        if (!items.timerVisible) {
+          toggleTimerVisibility(false);
+        }
+      }
+    );
+  } else {
+    // Fallback for testing outside Chrome extension
+    $("#timerLabel").text("Timer");
+    $("#timeInput").val("25:00");
+  }
+
+  // Event listeners
+  $("#startPauseBtn").click(function () {
+    if (!isRunning && !isPaused) {
+      startTimer();
+    } else if (isRunning) {
+      pauseTimer();
+    } else if (isPaused) {
+      resumeTimer();
+    }
+  });
+
+  $("#resetBtn").click(function () {
+    resetTimer();
+  });
+
+  $("#toggleTimerBtn").click(function () {
+    toggleTimerVisibility();
+  });
+
+  $("#showTimerBtn").click(function () {
+    toggleTimerVisibility(true);
+  });
+
+  // Save timer label when edited
+  $("#timerLabel").on("blur", function () {
+    const label = $(this).text().trim() || "Timer";
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.sync.set({ timerLabel: label });
+    }
+  });
+
+  // Handle Enter key on timer label
+  $("#timerLabel").on("keypress", function (e) {
+    if (e.which === 13) {
+      e.preventDefault();
+      $(this).blur();
+    }
+  });
+
+  // Save time input when changed
+  $("#timeInput").on("blur", function () {
+    const input = $(this).val().trim();
+    if (input && typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.sync.set({ lastTimerInput: input });
+    }
+  });
+
+  // Handle Enter key on time input
+  $("#timeInput").on("keypress", function (e) {
+    if (e.which === 13) {
+      e.preventDefault();
+      if (!isRunning && !isPaused) {
+        startTimer();
+      }
+    }
+  });
+}
+
+function startTimer() {
+  const timeInput = $("#timeInput").val().trim();
+  if (!timeInput) {
+    showTimerNotification("Please enter a time (e.g., 25:00 or 1:30:00)");
+    return;
+  }
+
+  totalSeconds = parseTimeInput(timeInput);
+  if (totalSeconds <= 0) {
+    showTimerNotification(
+      "Please enter a valid time format (MM:SS or HH:MM:SS)"
+    );
+    return;
+  }
+
+  isRunning = true;
+  isPaused = false;
+  $("#startPauseBtn").text("Pause").css("background", "#ffc107");
+  $("#timeInput").prop("disabled", true);
+
+  countdownInterval = setInterval(function () {
+    if (!isCountingUp) {
+      totalSeconds--;
+      updateTimerDisplay();
+
+      if (totalSeconds <= 0) {
+        timerComplete();
+      }
+    } else {
+      countUpSeconds++;
+      updateTimerDisplay();
+    }
+  }, 1000);
+
+  updateTimerDisplay();
+}
+
+function pauseTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  isRunning = false;
+  isPaused = true;
+  $("#startPauseBtn").text("Resume").css("background", "#28a745");
+}
+
+function resumeTimer() {
+  isRunning = true;
+  isPaused = false;
+  $("#startPauseBtn").text("Pause").css("background", "#ffc107");
+
+  countdownInterval = setInterval(function () {
+    if (!isCountingUp) {
+      totalSeconds--;
+      updateTimerDisplay();
+
+      if (totalSeconds <= 0) {
+        timerComplete();
+      }
+    } else {
+      countUpSeconds++;
+      updateTimerDisplay();
+    }
+  }, 1000);
+}
+
+function resetTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+
+  isRunning = false;
+  isPaused = false;
+  isCountingUp = false;
+  totalSeconds = 0;
+  countUpSeconds = 0;
+
+  $("#startPauseBtn").text("Start").css("background", "#28a745");
+  $("#timeInput").prop("disabled", false);
+  $("#timerDisplay").text("00:00:00").css("color", "#ffffff");
+}
+
+function updateTimerDisplay() {
+  let displaySeconds, hours, minutes, seconds, display;
+
+  if (isCountingUp) {
+    // Count up mode - show positive time with + prefix
+    displaySeconds = countUpSeconds;
+    hours = Math.floor(displaySeconds / 3600);
+    minutes = Math.floor((displaySeconds % 3600) / 60);
+    seconds = displaySeconds % 60;
+
+    display =
+      hours > 0
+        ? `+${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        : `+${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`;
+
+    $("#timerDisplay").text(display).css("color", "#ffc107"); // Yellow for overtime
+  } else {
+    // Countdown mode
+    displaySeconds = totalSeconds;
+    hours = Math.floor(displaySeconds / 3600);
+    minutes = Math.floor((displaySeconds % 3600) / 60);
+    seconds = displaySeconds % 60;
+
+    display =
+      hours > 0
+        ? `${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        : `${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`;
+
+    $("#timerDisplay").text(display);
+
+    // Change color when time is running low
+    if (displaySeconds <= 60 && displaySeconds > 10) {
+      $("#timerDisplay").css("color", "#ffc107"); // Yellow for last minute
+    } else if (displaySeconds <= 10) {
+      $("#timerDisplay").css("color", "#dc3545"); // Red for last 10 seconds
+    } else {
+      $("#timerDisplay").css("color", "#ffffff"); // White for normal
+    }
+  }
+}
+
+function timerComplete() {
+  // Don't clear the interval - switch to count-up mode
+  isCountingUp = true;
+  countUpSeconds = 0;
+  totalSeconds = 0;
+
+  // Show completion notification
+  const label = $("#timerLabel").text().trim();
+  showTimerNotification(`Timer completed: ${label} - Now counting up!`, 5000);
+
+  // Flash the timer display briefly
+  let flashCount = 0;
+  const flashInterval = setInterval(function () {
+    $("#timerDisplay").css(
+      "color",
+      flashCount % 2 === 0 ? "#28a745" : "#ffc107"
+    );
+    flashCount++;
+    if (flashCount >= 6) {
+      clearInterval(flashInterval);
+      // Timer will continue running in count-up mode
+    }
+  }, 500);
+}
+
+function parseTimeInput(input) {
+  // Remove any spaces
+  input = input.replace(/\s/g, "");
+
+  // Split by colon
+  const parts = input.split(":");
+
+  if (parts.length === 2) {
+    // MM:SS format
+    const minutes = parseInt(parts[0]) || 0;
+    const seconds = parseInt(parts[1]) || 0;
+    return minutes * 60 + seconds;
+  } else if (parts.length === 3) {
+    // HH:MM:SS format
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parseInt(parts[1]) || 0;
+    const seconds = parseInt(parts[2]) || 0;
+    return hours * 3600 + minutes * 60 + seconds;
+  } else if (parts.length === 1) {
+    // Just minutes
+    const minutes = parseInt(parts[0]) || 0;
+    return minutes * 60;
+  }
+
+  return 0;
+}
+
+function toggleTimerVisibility(setVisible) {
+  const container = $("#countdownContainer");
+  const button = $("#toggleTimerBtn");
+  const toggleButton = $("#timerToggleButton");
+
+  if (setVisible === undefined) {
+    // Toggle current state
+    setVisible = container.is(":hidden");
+  }
+
+  if (setVisible) {
+    container.show();
+    toggleButton.hide();
+    button.text("Hide");
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.sync.set({ timerVisible: true });
+    }
+  } else {
+    container.hide();
+    toggleButton.show();
+    button.text("Show");
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.sync.set({ timerVisible: false });
+    }
+  }
+}
+
+function showTimerNotification(message, duration = 3000) {
+  // Create notification element
+  const notification = $(`
+    <div style="
+      position: fixed;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    ">
+      ${message}
+    </div>
+  `);
+
+  $("body").append(notification);
+
+  // Remove after duration
+  setTimeout(function () {
+    notification.fadeOut(300, function () {
+      notification.remove();
+    });
+  }, duration);
 }

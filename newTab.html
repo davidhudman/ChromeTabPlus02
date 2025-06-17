@@ -438,6 +438,157 @@
       </div>
     </div>
 
+    <!-- Timer Toggle Button (always visible) -->
+    <div
+      id="timerToggleButton"
+      style="
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 60;
+        display: none;
+      "
+    >
+      <button
+        id="showTimerBtn"
+        style="
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        "
+      >
+        Show Timer
+      </button>
+    </div>
+
+    <!-- Countdown Timer Section -->
+    <div
+      id="countdownContainer"
+      style="
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px 20px;
+        border-radius: 10px;
+        min-width: 400px;
+        z-index: 50;
+      "
+    >
+      <!-- Timer Display -->
+      <div
+        id="timerDisplay"
+        style="
+          font-size: 32px;
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #ffffff;
+          text-shadow: 2px 2px 4px #000000;
+        "
+      >
+        00:00:00
+      </div>
+
+      <!-- Timer Label -->
+      <div
+        id="timerLabel"
+        style="
+          font-size: 16px;
+          margin-bottom: 15px;
+          color: #dddddd;
+          min-height: 20px;
+        "
+        contenteditable="true"
+        placeholder="Enter timer description..."
+      >
+        Timer
+      </div>
+
+      <!-- Timer Controls -->
+      <div
+        style="
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          align-items: center;
+          margin-bottom: 10px;
+        "
+      >
+        <!-- Time Input -->
+        <input
+          type="text"
+          id="timeInput"
+          placeholder="25:00"
+          style="
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 80px;
+            text-align: center;
+          "
+        />
+
+        <!-- Start/Pause Button -->
+        <button
+          id="startPauseBtn"
+          style="
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+          "
+        >
+          Start
+        </button>
+
+        <!-- Reset Button -->
+        <button
+          id="resetBtn"
+          style="
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+          "
+        >
+          Reset
+        </button>
+
+        <!-- Hide/Show Button -->
+        <button
+          id="toggleTimerBtn"
+          style="
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+          "
+        >
+          Hide
+        </button>
+      </div>
+    </div>
+
     <div
       id="greetingText"
       style="
