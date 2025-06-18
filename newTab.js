@@ -3360,9 +3360,234 @@ let isRunning = false;
 let isPaused = false;
 let isCountingUp = false;
 let countUpSeconds = 0;
+let timerStartTime = null;
+let pausedDuration = 0;
+
+// Validate time format
+function isValidTimeFormat(input) {
+  // Accept formats: MM, MM:SS, HH:MM:SS
+  const patterns = [
+    /^\d{1,2}$/, // Just minutes
+    /^\d{1,2}:\d{1,2}$/, // MM:SS
+    /^\d{1,2}:\d{1,2}:\d{1,2}$/ // HH:MM:SS
+  ];
+  return patterns.some(pattern => pattern.test(input));
+}
+
+// Format time input to HH:MM:SS or MM:SS
+function formatTimeInput(input) {
+  if (!input) return "00:00:00";
+  
+  const parts = input.split(':');
+  
+  if (parts.length === 1) {
+    // Just minutes
+    const minutes = parseInt(parts[0]) || 0;
+    return `${minutes.toString().padStart(2, '0')}:00`;
+  } else if (parts.length === 2) {
+    // MM:SS
+    const minutes = parseInt(parts[0]) || 0;
+    const seconds = parseInt(parts[1]) || 0;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else if (parts.length === 3) {
+    // HH:MM:SS
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parseInt(parts[1]) || 0;
+    const seconds = parseInt(parts[2]) || 0;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  
+  return "00:00:00";
+}
+
+// Save timer state to Chrome local storage
+function saveTimerState() {
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    const timerState = {
+      isRunning: isRunning,
+      isPaused: isPaused,
+      isCountingUp: isCountingUp,
+      totalSeconds: totalSeconds,
+      countUpSeconds: countUpSeconds,
+      timerStartTime: timerStartTime,
+      pausedDuration: pausedDuration,
+      initialTotalSeconds: window.initialTotalSeconds || totalSeconds,
+      timeInput: $("#timerDisplay").text(),
+      timerLabel: $("#timerLabel").text().trim(),
+      savedAt: Date.now()
+    };
+    
+    chrome.storage.local.set({ timerState: timerState }, function() {
+      console.log("Timer state saved:", timerState);
+    });
+  }
+}
+
+// Load timer state from Chrome local storage
+function loadTimerState(callback) {
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.local.get("timerState", function(result) {
+      if (result.timerState) {
+        const state = result.timerState;
+        const now = Date.now();
+        const timeSinceSave = (now - state.savedAt) / 1000; // Convert to seconds
+        
+        // Don't restore if the timer was reset (totalSeconds is 0 and not running/paused)
+        if (state.totalSeconds === 0 && !state.isRunning && !state.isPaused && !state.isCountingUp) {
+          console.log("Timer was reset, not restoring state");
+          if (callback) callback();
+          return;
+        }
+        
+        // Restore timer label
+        if (state.timerLabel) {
+          $("#timerLabel").text(state.timerLabel);
+        }
+        
+        // Calculate current timer values based on saved state
+        if (state.isRunning && !state.isPaused) {
+          // Timer was running - calculate elapsed time since it started
+          if (!state.isCountingUp) {
+            // Countdown mode - calculate remaining time
+            const elapsedSinceStart = (now - state.timerStartTime) / 1000;
+            totalSeconds = Math.max(0, Math.floor(state.initialTotalSeconds - elapsedSinceStart));
+            
+            if (totalSeconds === 0 && state.initialTotalSeconds > 0) {
+              // Timer completed while tab was closed
+              isCountingUp = true;
+              countUpSeconds = Math.floor(elapsedSinceStart - state.initialTotalSeconds);
+            }
+          } else {
+            // Count up mode - add elapsed time
+            isCountingUp = true;
+            countUpSeconds = Math.floor(state.countUpSeconds + timeSinceSave);
+          }
+          
+          // Set initial total seconds for proper tracking
+          window.initialTotalSeconds = state.initialTotalSeconds;
+          
+          // Resume the timer
+          isRunning = false; // Set to false so we can properly start it
+          isPaused = false;
+          timerStartTime = state.timerStartTime; // Keep original start time
+          pausedDuration = 0;
+          
+          // Start the timer after a brief delay to ensure UI is ready
+          setTimeout(function() {
+            if (!isCountingUp || totalSeconds > 0) {
+              // Don't call startTimer as it resets the start time
+              // Instead, directly set up the interval
+              isRunning = true;
+              $("#startPauseBtn").text("Pause").css("background", "#ffc107");
+              $("#timerDisplay").attr("contenteditable", "false");
+              
+              countdownInterval = setInterval(function () {
+                if (!isCountingUp) {
+                  totalSeconds--;
+                  updateTimerDisplay();
+
+                  if (totalSeconds <= 0) {
+                    timerComplete();
+                  }
+                } else {
+                  countUpSeconds++;
+                  updateTimerDisplay();
+                }
+                
+                // Save state periodically while running
+                saveTimerState();
+              }, 1000);
+
+              updateTimerDisplay();
+              saveTimerState();
+            } else {
+              // For count-up mode after timer completion
+              resumeCountUp();
+            }
+          }, 100);
+          
+        } else if (state.isPaused) {
+          // Timer was paused - restore paused state
+          totalSeconds = state.totalSeconds;
+          countUpSeconds = state.countUpSeconds;
+          isCountingUp = state.isCountingUp;
+          isPaused = true;
+          isRunning = false;
+          pausedDuration = state.pausedDuration;
+          timerStartTime = state.timerStartTime;
+          window.initialTotalSeconds = state.initialTotalSeconds;
+          
+          $("#startPauseBtn").text("Resume").css("background", "#28a745");
+          $("#timeInput").prop("disabled", true);
+          updateTimerDisplay();
+        }
+        
+        if (callback) callback();
+      } else {
+        if (callback) callback();
+      }
+    });
+  } else {
+    if (callback) callback();
+  }
+}
 
 // Initialize countdown timer
 function initCountdownTimer() {
+  // Make timer display editable when not running
+  $("#timerDisplay").on("click", function() {
+    if (!isRunning && !isPaused) {
+      $(this).attr("contenteditable", "true").focus();
+      // Select all text
+      const range = document.createRange();
+      range.selectNodeContents(this);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  });
+  
+  // Handle timer display input
+  $("#timerDisplay").on("blur", function() {
+    $(this).attr("contenteditable", "false");
+    const input = $(this).text().trim();
+    if (!input || !isValidTimeFormat(input)) {
+      $(this).text("00:00:00");
+    } else {
+      // Format the input properly
+      const formattedTime = formatTimeInput(input);
+      $(this).text(formattedTime);
+    }
+  });
+  
+  // Handle Enter key on timer display
+  $("#timerDisplay").on("keypress", function(e) {
+    if (e.which === 13) {
+      e.preventDefault();
+      $(this).blur();
+      if (!isRunning && !isPaused) {
+        startTimer();
+      }
+    }
+  });
+  
+  // Prevent non-numeric input
+  $("#timerDisplay").on("input", function() {
+    let text = $(this).text();
+    // Allow only numbers and colons
+    text = text.replace(/[^0-9:]/g, '');
+    if (text !== $(this).text()) {
+      $(this).text(text);
+      // Move cursor to end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(this);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  });
+
   // Load saved timer state with fallback for non-extension environment
   if (typeof chrome !== "undefined" && chrome.storage) {
     chrome.storage.sync.get(
@@ -3373,17 +3598,24 @@ function initCountdownTimer() {
       },
       function (items) {
         $("#timerLabel").text(items.timerLabel);
-        $("#timeInput").val(items.lastTimerInput);
+        
+        // Set default timer display if not running
+        if (!isRunning && !isPaused) {
+          $("#timerDisplay").text(formatTimeInput(items.lastTimerInput));
+        }
 
         if (!items.timerVisible) {
           toggleTimerVisibility(false);
         }
+        
+        // Load timer state after setting up the UI
+        loadTimerState();
       }
     );
   } else {
     // Fallback for testing outside Chrome extension
     $("#timerLabel").text("Timer");
-    $("#timeInput").val("25:00");
+    $("#timerDisplay").text("00:25:00");
   }
 
   // Event listeners
@@ -3425,28 +3657,11 @@ function initCountdownTimer() {
     }
   });
 
-  // Save time input when changed
-  $("#timeInput").on("blur", function () {
-    const input = $(this).val().trim();
-    if (input && typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.sync.set({ lastTimerInput: input });
-    }
-  });
-
-  // Handle Enter key on time input
-  $("#timeInput").on("keypress", function (e) {
-    if (e.which === 13) {
-      e.preventDefault();
-      if (!isRunning && !isPaused) {
-        startTimer();
-      }
-    }
-  });
 }
 
 function startTimer() {
-  const timeInput = $("#timeInput").val().trim();
-  if (!timeInput) {
+  const timeInput = $("#timerDisplay").text().trim();
+  if (!timeInput || timeInput === "00:00:00" || timeInput === "00:00") {
     showTimerNotification("Please enter a time (e.g., 25:00 or 1:30:00)");
     return;
   }
@@ -3459,10 +3674,19 @@ function startTimer() {
     return;
   }
 
+  // Store initial total seconds and start time for persistence
+  window.initialTotalSeconds = totalSeconds;
+  timerStartTime = Date.now();
+  
+  // Save the last used time
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.sync.set({ lastTimerInput: timeInput });
+  }
+  
   isRunning = true;
   isPaused = false;
   $("#startPauseBtn").text("Pause").css("background", "#ffc107");
-  $("#timeInput").prop("disabled", true);
+  $("#timerDisplay").attr("contenteditable", "false");
 
   countdownInterval = setInterval(function () {
     if (!isCountingUp) {
@@ -3476,9 +3700,15 @@ function startTimer() {
       countUpSeconds++;
       updateTimerDisplay();
     }
+    
+    // Save state periodically while running (only if not in reset state)
+    if (isRunning || isPaused || totalSeconds > 0 || isCountingUp) {
+      saveTimerState();
+    }
   }, 1000);
 
   updateTimerDisplay();
+  saveTimerState();
 }
 
 function pauseTimer() {
@@ -3488,13 +3718,24 @@ function pauseTimer() {
   }
   isRunning = false;
   isPaused = true;
+  
+  // Calculate and store the elapsed time when pausing
+  if (timerStartTime && !isCountingUp) {
+    const elapsedSinceStart = (Date.now() - timerStartTime) / 1000;
+    totalSeconds = Math.max(0, Math.floor(window.initialTotalSeconds - elapsedSinceStart));
+  }
+  
   $("#startPauseBtn").text("Resume").css("background", "#28a745");
+  saveTimerState();
 }
 
 function resumeTimer() {
   isRunning = true;
   isPaused = false;
   $("#startPauseBtn").text("Pause").css("background", "#ffc107");
+  
+  // Recalculate start time based on current totalSeconds
+  timerStartTime = Date.now() - ((window.initialTotalSeconds - totalSeconds) * 1000);
 
   countdownInterval = setInterval(function () {
     if (!isCountingUp) {
@@ -3508,7 +3749,14 @@ function resumeTimer() {
       countUpSeconds++;
       updateTimerDisplay();
     }
+    
+    // Save state periodically while running (only if not in reset state)
+    if (isRunning || isPaused || totalSeconds > 0 || isCountingUp) {
+      saveTimerState();
+    }
   }, 1000);
+  
+  saveTimerState();
 }
 
 function resetTimer() {
@@ -3522,10 +3770,46 @@ function resetTimer() {
   isCountingUp = false;
   totalSeconds = 0;
   countUpSeconds = 0;
+  timerStartTime = null;
+  pausedDuration = 0;
+  window.initialTotalSeconds = 0;
 
   $("#startPauseBtn").text("Start").css("background", "#28a745");
-  $("#timeInput").prop("disabled", false);
   $("#timerDisplay").text("00:00:00").css("color", "#ffffff");
+  
+  // Timer display should be editable again after reset
+  if (!isRunning && !isPaused) {
+    $("#timerDisplay").attr("contenteditable", "false");
+  }
+  
+  // Clear saved timer state
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.local.remove("timerState", function() {
+      console.log("Timer state cleared");
+    });
+  }
+}
+
+// Resume count up mode (used when loading saved state)
+function resumeCountUp() {
+  isRunning = true;
+  isPaused = false;
+  isCountingUp = true;
+  $("#startPauseBtn").text("Pause").css("background", "#ffc107");
+  $("#timeInput").prop("disabled", true);
+
+  countdownInterval = setInterval(function () {
+    countUpSeconds++;
+    updateTimerDisplay();
+    
+    // Save state periodically while running (only if not in reset state)
+    if (isRunning || isPaused || totalSeconds > 0 || isCountingUp) {
+      saveTimerState();
+    }
+  }, 1000);
+
+  updateTimerDisplay();
+  saveTimerState();
 }
 
 function updateTimerDisplay() {
@@ -3533,10 +3817,10 @@ function updateTimerDisplay() {
 
   if (isCountingUp) {
     // Count up mode - show positive time with + prefix
-    displaySeconds = countUpSeconds;
+    displaySeconds = Math.floor(countUpSeconds);
     hours = Math.floor(displaySeconds / 3600);
     minutes = Math.floor((displaySeconds % 3600) / 60);
-    seconds = displaySeconds % 60;
+    seconds = Math.floor(displaySeconds % 60);
 
     display =
       hours > 0
@@ -3550,10 +3834,10 @@ function updateTimerDisplay() {
     $("#timerDisplay").text(display).css("color", "#ffc107"); // Yellow for overtime
   } else {
     // Countdown mode
-    displaySeconds = totalSeconds;
+    displaySeconds = Math.floor(totalSeconds);
     hours = Math.floor(displaySeconds / 3600);
     minutes = Math.floor((displaySeconds % 3600) / 60);
-    seconds = displaySeconds % 60;
+    seconds = Math.floor(displaySeconds % 60);
 
     display =
       hours > 0
@@ -3586,6 +3870,9 @@ function timerComplete() {
   // Show completion notification
   const label = $("#timerLabel").text().trim();
   showTimerNotification(`Timer completed: ${label} - Now counting up!`, 5000);
+  
+  // Save state when timer completes
+  saveTimerState();
 
   // Flash the timer display briefly
   let flashCount = 0;
