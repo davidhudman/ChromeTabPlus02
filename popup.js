@@ -300,30 +300,43 @@ function getFxPrices() {
 
   // handle the request
   request.onreadystatechange = function () {
-    // put the JSON text into a new object
-    obj = JSON.parse(request.responseText);
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(`getFxPrices: HTTP ${request.status}`);
+      return;
+    }
 
-    // define a string to hold all currency quotes
-    fxString = "";
+    let obj;
+    try {
+      obj = JSON.parse(request.responseText);
+    } catch (e) {
+      console.error(
+        "getFxPrices: failed to parse JSON",
+        e,
+        request.responseText
+      );
+      return;
+    }
+    if (!obj || !obj.quotes) {
+      console.error("getFxPrices: missing quotes in response", obj);
+      return;
+    }
 
-    // create a function to parse currency price once we have our list of currencies
+    let fxString = "";
+
     function parseCurrencyPrice(currencyName) {
       try {
-        fxString +=
-          currencyName +
-          ": " +
-          Math.round(10000 * JSON.stringify(obj.quotes[currencyName])) / 10000 +
-          " : " +
-          Math.round(10000 * (1 / JSON.stringify(obj.quotes[currencyName]))) /
-            10000 +
-          "<br>";
+        const rate = Number(obj.quotes[currencyName]);
+        if (!Number.isFinite(rate)) throw new Error("invalid rate");
+        const direct = Math.round(10000 * rate) / 10000;
+        const inverse = Math.round(10000 * (1 / rate)) / 10000;
+        fxString += currencyName + ": " + direct + " : " + inverse + "<br>";
       } catch (e) {
         fxString += "Failed to load " + currencyName + "<br>";
       }
     }
 
-    // define our list of currencies
-    currencyList = [
+    const currencyList = [
       "USDEUR",
       "USDJPY",
       "USDGBP",
@@ -336,28 +349,43 @@ function getFxPrices() {
       "USDAUD",
     ];
 
-    // calculate dollar index
     fxString += "$DXY: ";
-    fxString +=
-      Math.round(
-        10000 *
-          50.14348 *
-          Math.pow(1 / JSON.stringify(obj.quotes["USDEUR"]), -0.576) *
-          Math.pow(JSON.stringify(obj.quotes["USDJPY"]), 0.136) *
-          Math.pow(1 / JSON.stringify(obj.quotes["USDGBP"]), -0.119) *
-          Math.pow(JSON.stringify(obj.quotes["USDCAD"]), 0.091) *
-          Math.pow(JSON.stringify(obj.quotes["USDSEK"]), 0.042) *
-          Math.pow(JSON.stringify(obj.quotes["USDCHF"]), 0.036)
-      ) / 10000;
+    try {
+      const USDEUR = Number(obj.quotes["USDEUR"]);
+      const USDJPY = Number(obj.quotes["USDJPY"]);
+      const USDGBP = Number(obj.quotes["USDGBP"]);
+      const USDCAD = Number(obj.quotes["USDCAD"]);
+      const USDSEK = Number(obj.quotes["USDSEK"]);
+      const USDCHF = Number(obj.quotes["USDCHF"]);
+      if (
+        [USDEUR, USDJPY, USDGBP, USDCAD, USDSEK, USDCHF].every(Number.isFinite)
+      ) {
+        const dxy =
+          Math.round(
+            10000 *
+              50.14348 *
+              Math.pow(1 / USDEUR, -0.576) *
+              Math.pow(USDJPY, 0.136) *
+              Math.pow(1 / USDGBP, -0.119) *
+              Math.pow(USDCAD, 0.091) *
+              Math.pow(USDSEK, 0.042) *
+              Math.pow(USDCHF, 0.036)
+          ) / 10000;
+        fxString += dxy;
+      } else {
+        fxString += "N/A";
+      }
+    } catch (e) {
+      fxString += "N/A";
+    }
     fxString += "<br>";
 
-    // iterate through the list of currencies to obtain the quotes
     for (var i = 0; i < currencyList.length; i++) {
       parseCurrencyPrice(currencyList[i]);
     }
 
-    // display the quotes in HTML
-    $("#FX").html("<div>" + fxString + "</div>");
+    const fxEl = document.getElementById("FX");
+    if (fxEl) fxEl.innerHTML = "<div>" + fxString + "</div>";
   };
 
   // request data from a FX provider
@@ -504,13 +532,28 @@ function getCryptoPrices() {
 
   // handle the request
   request.onreadystatechange = function () {
-    // put the JSON text into a new object
-    obj = JSON.parse(request.responseText);
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(`getCryptoPrices: HTTP ${request.status}`);
+      return;
+    }
 
-    // define a string to hold all currency quotes
-    coinString = "";
+    let obj;
+    try {
+      obj = JSON.parse(request.responseText);
+    } catch (e) {
+      console.error(
+        "getCryptoPrices: failed to parse JSON",
+        e,
+        request.responseText
+      );
+      return;
+    }
 
-    // create a function to parse currency price once we have our list of currencies
+    console.log(`obj.BTC: ${JSON.stringify(obj["BTC"])}`);
+
+    let coinString = "";
+
     function parseCoinPrice(coinName) {
       try {
         coinString +=
@@ -521,32 +564,25 @@ function getCryptoPrices() {
       }
     }
 
-    // define our list of currencies
-    coinList = ["BTC", "ETH", "BCH", "ZEC", "XMR", "DOGE"];
-
-    // iterate through the list of currencies to obtain the quotes
+    const coinList = ["BTC", "ETH", "BCH", "ZEC", "XMR", "DOGE"];
     for (var i = 0; i < coinList.length; i++) {
       parseCoinPrice(coinList[i]);
     }
 
-    // get ETH gas prices
     getEthGasPrices();
-
-    // get BTC transaction prices
     getBtcTransxPrices();
 
-    // show BTC to BCH ratio from coin list
     let btcToBch = cryptos["BCH"] / cryptos["BTC"];
-
-    // display the quotes in HTML
-    $("#BTC").html(
-      "<div>" +
+    const btcEl = document.getElementById("BTC");
+    if (btcEl) {
+      btcEl.innerHTML =
+        "<div>" +
         coinString +
         "<br />" +
         "BTC to BCH: " +
         btcToBch.toFixed(8) +
-        "</div>"
-    );
+        "</div>";
+    }
   };
 
   // request data from a coin exchange
