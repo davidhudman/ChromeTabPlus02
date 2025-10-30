@@ -11,7 +11,7 @@ var googlePhotosReel = [
   "https://lh3.googleusercontent.com/4tD_TkWBWp09qROMJatAbqPZLlt7X-qDY3jvM1MWKg-7iJSxYHsoEQRE2hQKAsud8FzXfirXWuMO2k6wQyglN2xYdWYaXpIt9MeJpVQgI8AJUpkOSMfY1FdihbquhAjjOGs13cioHKe3ibKXxa1P-FBfbf1gKuCGixVIx9lg34BYDy9ly4uTQ_UQMGzplL5i8OKNrVmA08bejlgTRHi33b76duzQD0hlm0KU8a3YXCxKClvABD-B6xXBeD-8zlinSsxatlvpSvjpmd24XP2k6XrD-LcLexlcsISTdGRFVxiGDvmM9f2mI2aOLTj_ydtxlu3_7apfXic2Po95Ty9OGO2BfpUokyI8RS4yyWIuI-6AgMgEPciN6_0A8iwLSvf4F2p55OWUZKG8czHKMp5NCMgBCE583nXlQAbck-9SVaTAyOwaDOn0dSA8M3mFXe1avM4tDBsGtbAIPwthSwrV80SBN-B4SMk9eV5zMQCfzN6JhJJiNk7xFMM33NUmrRM0JI_-ufKqNQwfDoXA-64lkMFvGWoUZMJsFa5MnPO5UB8twwB-4m4rF44xOmFD1dGuFVFP7FYcRzbyrPvYX-uKkV2CCiI827JbmLCjqWlyIFk=w1266-h949-no",
 ];
 
-$(document).ready(function () {
+document.addEventListener("DOMContentLoaded", function () {
   // $("#helloText").click(function () {
   //   nextImageInChromeStoragePhotoArray();
   // });
@@ -22,155 +22,161 @@ $(document).ready(function () {
   // });
 
   // Add a more sophisticated click handler for the time
-  $("#time").click(function (e) {
-    // Get click position relative to the time element
-    const timeEl = document.getElementById("time");
-    const rect = timeEl.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const timeWidth = rect.width;
+  const timeEl = document.getElementById("time");
+  if (timeEl)
+    timeEl.addEventListener("click", function (e) {
+      // Get click position relative to the time element
+      const rect = timeEl.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const timeWidth = rect.width;
 
-    // If click is on the right half (minutes), go backward
-    if (clickX > timeWidth * 0.67) {
-      previousImageInChromeStoragePhotoArray();
-    }
-    // If click is on the left third (hours), go forward
-    else if (clickX < timeWidth * 0.33) {
-      nextImageInChromeStoragePhotoArray();
-    }
-    // If click is in the middle (colon), toggle default background
-    else {
-      // Check current background state and toggle
-      chrome.storage.local.get(
-        {
-          backgroundImages: [],
-          useDefaultBackground: false,
-        },
-        function (items) {
-          console.log("Toggle background - Current state:", items);
+      // If click is on the right half (minutes), go backward
+      if (clickX > timeWidth * 0.67) {
+        previousImageInChromeStoragePhotoArray();
+      }
+      // If click is on the left third (hours), go forward
+      else if (clickX < timeWidth * 0.33) {
+        nextImageInChromeStoragePhotoArray();
+      }
+      // If click is in the middle (colon), toggle default background
+      else {
+        // Check current background state and toggle
+        chrome.storage.local.get(
+          {
+            backgroundImages: [],
+            useDefaultBackground: false,
+          },
+          function (items) {
+            console.log("Toggle background - Current state:", items);
 
-          if (items.useDefaultBackground) {
-            // Currently using default background, try to switch to custom
-            if (items.backgroundImages && items.backgroundImages.length > 0) {
-              console.log(
-                "Switching to custom background:",
-                items.backgroundImages[0]
-              );
+            if (items.useDefaultBackground) {
+              // Currently using default background, try to switch to custom
+              if (items.backgroundImages && items.backgroundImages.length > 0) {
+                console.log(
+                  "Switching to custom background:",
+                  items.backgroundImages[0]
+                );
 
-              // Switch to first custom background
-              $("#bodyid").css(
-                "background-image",
-                `url(${items.backgroundImages[0].data})`
-              );
-              $("#bodyid").css("background-color", "");
+                // Switch to first custom background
+                const bodyEl = document.getElementById("bodyid");
+                if (bodyEl) {
+                  bodyEl.style.backgroundImage = `url(${items.backgroundImages[0].data})`;
+                  bodyEl.style.backgroundColor = "";
+                }
 
-              // Save the state
-              chrome.storage.local.set({
-                photoArrayCountCurrent: 0,
-                useDefaultBackground: false,
-              });
+                // Save the state
+                chrome.storage.local.set({
+                  photoArrayCountCurrent: 0,
+                  useDefaultBackground: false,
+                });
+              } else {
+                // No custom backgrounds available
+                showNotification(
+                  "No custom backgrounds available. Add images in extension options."
+                );
+              }
             } else {
-              // No custom backgrounds available
-              showNotification(
-                "No custom backgrounds available. Add images in extension options."
-              );
+              // Currently using custom background, switch to default
+              setDefaultBackground();
             }
-          } else {
-            // Currently using custom background, switch to default
-            setDefaultBackground();
           }
-        }
-      );
-    }
-  });
+        );
+      }
+    });
 
   // Use delegated event handler for the background tip with dual approach
-  $(document).on("click", "#backgroundTip", function () {
-    // Just trigger the time click for consistency
-    $("#time").trigger("click");
+  document.addEventListener("click", function (e) {
+    const target = e.target;
+    if (target && target.id === "backgroundTip") {
+      const t = document.getElementById("time");
+      if (t) t.click();
+    }
   });
 
   getStoredGreeting();
 
   // Add blur event listener to save when user finishes editing
-  $("#helloText").on("blur", function () {
-    saveGreeting();
-  });
+  const helloText = document.getElementById("helloText");
+  if (helloText) {
+    helloText.addEventListener("blur", function () {
+      saveGreeting();
+    });
 
-  // Update the keypress event handler
-  $("#helloText").on("keypress", function (e) {
-    if (e.which === 13 && e.shiftKey) {
-      // If Shift+Enter is pressed, save the changes
-      e.preventDefault();
-      this.blur();
-    }
-    // Regular Enter key will now create a line break
-  });
+    // Update the keypress event handler
+    helloText.addEventListener("keypress", function (e) {
+      if ((e.key === "Enter" || e.keyCode === 13) && e.shiftKey) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
 
-  // Add a new keydown handler for Escape key
-  $("#helloText").on("keydown", function (e) {
-    if (e.which === 27) {
-      // Escape key
-      e.preventDefault();
-      this.blur();
-    }
-  });
+    // Add a new keydown handler for Escape key
+    helloText.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.keyCode === 27) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  }
 
   getStoredNotes();
 
   // Add event listeners for the notes
-  $("#notes").on("blur", function () {
-    saveNotes();
-  });
-
-  $("#notes").on("keypress", function (e) {
-    if (e.which === 13 && e.shiftKey) {
-      // If Shift+Enter is pressed, save the changes
-      e.preventDefault();
-      this.blur();
-    }
-    // Regular Enter key will create a line break
-  });
-
-  $("#notes").on("keydown", function (e) {
-    if (e.which === 27) {
-      // Escape key
-      e.preventDefault();
-      this.blur();
-    }
-  });
+  const notes = document.getElementById("notes");
+  if (notes) {
+    notes.addEventListener("blur", function () {
+      saveNotes();
+    });
+    notes.addEventListener("keypress", function (e) {
+      if ((e.key === "Enter" || e.keyCode === 13) && e.shiftKey) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+    notes.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.keyCode === 27) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  }
 
   getStoredBottomNotes();
 
   // Add event listeners for the bottom notes
-  $("#bottomNotes").on("blur", function () {
-    saveBottomNotes();
-  });
-
-  $("#bottomNotes").on("keypress", function (e) {
-    if (e.which === 13 && e.shiftKey) {
-      // If Shift+Enter is pressed, save the changes
-      e.preventDefault();
-      this.blur();
-    }
-    // Regular Enter key will create a line break
-  });
-
-  $("#bottomNotes").on("keydown", function (e) {
-    if (e.which === 27) {
-      // Escape key
-      e.preventDefault();
-      this.blur();
-    }
-  });
+  const bottomNotes = document.getElementById("bottomNotes");
+  if (bottomNotes) {
+    bottomNotes.addEventListener("blur", function () {
+      saveBottomNotes();
+    });
+    bottomNotes.addEventListener("keypress", function (e) {
+      if ((e.key === "Enter" || e.keyCode === 13) && e.shiftKey) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+    bottomNotes.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.keyCode === 27) {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  }
 
   // Add toggle button event listeners
-  $("#toggleTopNotes").click(function () {
-    toggleNotesVisibility("topNotesVisible", "#notes");
-  });
+  const toggleTopNotes = document.getElementById("toggleTopNotes");
+  if (toggleTopNotes) {
+    toggleTopNotes.addEventListener("click", function () {
+      toggleNotesVisibility("topNotesVisible", "#notes");
+    });
+  }
 
-  $("#toggleBottomNotes").click(function () {
-    toggleNotesVisibility("bottomNotesVisible", "#bottomNotes");
-  });
+  const toggleBottomNotes = document.getElementById("toggleBottomNotes");
+  if (toggleBottomNotes) {
+    toggleBottomNotes.addEventListener("click", function () {
+      toggleNotesVisibility("bottomNotesVisible", "#bottomNotes");
+    });
+  }
 
   // Get stored visibility states
   chrome.storage.sync.get(
@@ -180,10 +186,12 @@ $(document).ready(function () {
     },
     function (items) {
       if (!items.topNotesVisible) {
-        $("#notes").hide();
+        const el = document.getElementById("notes");
+        if (el) el.style.display = "none";
       }
       if (!items.bottomNotesVisible) {
-        $("#bottomNotes").hide();
+        const el = document.getElementById("bottomNotes");
+        if (el) el.style.display = "none";
       }
     }
   );
@@ -195,39 +203,40 @@ $(document).ready(function () {
   checkStorageUsage();
 
   // Add event listener for adding new TODOs
-  $("#addTodoBtn").click(function () {
-    createNewTodo();
-  });
+  const addTodoBtn = document.getElementById("addTodoBtn");
+  if (addTodoBtn) addTodoBtn.addEventListener("click", createNewTodo);
 
   // Add event listener for toggling between active and deleted TODOs
-  $("#toggleTodoViewBtn").click(function () {
-    toggleTodoView();
-  });
+  const toggleTodoViewBtn = document.getElementById("toggleTodoViewBtn");
+  if (toggleTodoViewBtn)
+    toggleTodoViewBtn.addEventListener("click", toggleTodoView);
 
   // Add event listener for toggling TODO section visibility
-  $("#toggleTodosVisibilityBtn").click(function () {
-    toggleTodosVisibility();
-  });
+  const toggleTodosVisibilityBtn = document.getElementById(
+    "toggleTodosVisibilityBtn"
+  );
+  if (toggleTodosVisibilityBtn)
+    toggleTodosVisibilityBtn.addEventListener("click", toggleTodosVisibility);
 
   // Add event listener for permanent delete all
-  $("#permanentDeleteAllBtn").click(function () {
-    confirmPermanentDeleteAll();
-  });
+  const permanentDeleteAllBtn = document.getElementById(
+    "permanentDeleteAllBtn"
+  );
+  if (permanentDeleteAllBtn)
+    permanentDeleteAllBtn.addEventListener("click", confirmPermanentDeleteAll);
 
   // Add event listener for exporting as JSON
-  $("#exportJsonBtn").click(function () {
-    exportAsJson();
-  });
+  const exportJsonBtn = document.getElementById("exportJsonBtn");
+  if (exportJsonBtn) exportJsonBtn.addEventListener("click", exportAsJson);
 
   // Add event listener for importing from JSON
-  $("#importJsonBtn").click(function () {
-    importFromJson();
-  });
+  const importJsonBtn = document.getElementById("importJsonBtn");
+  if (importJsonBtn) importJsonBtn.addEventListener("click", importFromJson);
 
   // Add event listener for migrating TODOs from sync to local storage
-  $("#migrateTodosBtn").click(function () {
-    migrateTodosToLocal();
-  });
+  const migrateTodosBtn = document.getElementById("migrateTodosBtn");
+  if (migrateTodosBtn)
+    migrateTodosBtn.addEventListener("click", migrateTodosToLocal);
 
   // Check if TODOs visibility state is stored
   chrome.storage.sync.get(
@@ -243,9 +252,10 @@ $(document).ready(function () {
   );
 
   // Modify the backgroundTip content when DOM is ready
-  $(document).ready(function () {
-    // Update backgroundTip content
-    $("#backgroundTip").html(`
+  // Update backgroundTip content
+  const backgroundTip = document.getElementById("backgroundTip");
+  if (backgroundTip) {
+    backgroundTip.innerHTML = `
       <p style="margin: 0">
         <b>Background Controls:</b>
         <br />
@@ -257,51 +267,61 @@ $(document).ready(function () {
           Upload images in Chrome Extensions > ChromeTabPlus > Options
         </span>
       </p>
-    `);
-  });
+    `;
+  }
 
   // Initialize background image data display
   initBackgroundImagesData();
 
   // Toggle background images data visibility
-  $("#toggleBgImagesData").click(function () {
-    toggleBgImagesDataVisibility();
-  });
+  const toggleBgImagesData = document.getElementById("toggleBgImagesData");
+  if (toggleBgImagesData) {
+    toggleBgImagesData.addEventListener("click", function () {
+      toggleBgImagesDataVisibility();
+    });
+  }
 
   // Add event listener for showing raw storage data
-  $("#showRawStorageData").click(function () {
-    showRawStorageData();
-  });
+  const showRawStorageDataBtn = document.getElementById("showRawStorageData");
+  if (showRawStorageDataBtn)
+    showRawStorageDataBtn.addEventListener("click", showRawStorageData);
 
   // Add event listener for checking storage usage
-  $("#checkStorageUsage").click(function () {
-    checkStorageUsage();
-  });
+  const checkStorageUsageBtn = document.getElementById("checkStorageUsage");
+  if (checkStorageUsageBtn)
+    checkStorageUsageBtn.addEventListener("click", checkStorageUsage);
 
   // Add event listeners for text size controls
-  $("#increaseClockSize").click(function () {
-    adjustTextSize("clock", 8);
-  });
-
-  $("#decreaseClockSize").click(function () {
-    adjustTextSize("clock", -8);
-  });
-
-  $("#resetClockSize").click(function () {
-    resetTextSize("clock");
-  });
-
-  $("#increaseGreetingSize").click(function () {
-    adjustTextSize("greeting", 6);
-  });
-
-  $("#decreaseGreetingSize").click(function () {
-    adjustTextSize("greeting", -6);
-  });
-
-  $("#resetGreetingSize").click(function () {
-    resetTextSize("greeting");
-  });
+  const increaseClockSize = document.getElementById("increaseClockSize");
+  if (increaseClockSize)
+    increaseClockSize.addEventListener("click", function () {
+      adjustTextSize("clock", 8);
+    });
+  const decreaseClockSize = document.getElementById("decreaseClockSize");
+  if (decreaseClockSize)
+    decreaseClockSize.addEventListener("click", function () {
+      adjustTextSize("clock", -8);
+    });
+  const resetClockSize = document.getElementById("resetClockSize");
+  if (resetClockSize)
+    resetClockSize.addEventListener("click", function () {
+      resetTextSize("clock");
+    });
+  const increaseGreetingSize = document.getElementById("increaseGreetingSize");
+  if (increaseGreetingSize)
+    increaseGreetingSize.addEventListener("click", function () {
+      adjustTextSize("greeting", 6);
+    });
+  const decreaseGreetingSize = document.getElementById("decreaseGreetingSize");
+  if (decreaseGreetingSize)
+    decreaseGreetingSize.addEventListener("click", function () {
+      adjustTextSize("greeting", -6);
+    });
+  const resetGreetingSize = document.getElementById("resetGreetingSize");
+  if (resetGreetingSize)
+    resetGreetingSize.addEventListener("click", function () {
+      resetTextSize("greeting");
+    });
 
   // Initialize text sizes from storage
   initTextSizes();
@@ -657,27 +677,23 @@ function getStoredData() {
       photoArray: "derick-daily-xw69fz33sKg-unsplash.jpg",
     },
     function (items) {
-      $("#bodyid").attr(
-        "background",
-        items.photoPath + "\\" + items.photoArray[items.photoArrayCountCurrent]
-      ); // restore the image that was on last
+      const bodyEl = document.getElementById("bodyid");
+      if (bodyEl) {
+        bodyEl.setAttribute(
+          "background",
+          items.photoPath +
+            "\\" +
+            items.photoArray[items.photoArrayCountCurrent]
+        );
+      }
     }
   );
 }
 
 function countImagesInFolder() {
-  $.ajax({
-    url: "C:UsersdhudmanDocumentsPersonalProjectsWeather chrome extension with crypto 2017 09 08aWeatherwallpaper",
-    success: function (data) {
-      numImages = 0;
-      $(data)
-        .find("a:contains(.jpg)")
-        .each(function () {
-          numImages++;
-        });
-      alert("numImages: " + numImages);
-    },
-  });
+  console.warn(
+    "countImagesInFolder is not supported without jQuery and local file listing. Skipping."
+  );
 }
 
 function getFileSystemAccess() {
@@ -703,19 +719,28 @@ function getWeatherData(zip) {
   var request = new XMLHttpRequest();
 
   request.onreadystatechange = function () {
-    if (request.readyState === 4 && request.status === 200) {
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(`getWeatherData: HTTP ${request.status}`);
+      return;
+    }
+    try {
       var obj = JSON.parse(request.responseText);
-      var latitude = obj.results[0].geometry.location.lat;
-      var longitude = obj.results[0].geometry.location.lng;
-
-      // Now get weather data using lat/long
+      const place = obj && obj.places && obj.places[0];
+      if (!place) throw new Error("no places found for zip");
+      var latitude = parseFloat(place.latitude);
+      var longitude = parseFloat(place.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude))
+        throw new Error("invalid lat/lon");
       fetchOpenMeteoWeather(latitude, longitude);
+    } catch (e) {
+      console.error("getWeatherData: failed to parse geocode response", e);
     }
   };
 
   request.open(
     "GET",
-    "http://maps.googleapis.com/maps/api/geocode/json?address=" + zip,
+    "https://api.zippopotam.us/us/" + encodeURIComponent(zip),
     true
   );
   request.send();
@@ -937,21 +962,16 @@ function toggleNotesVisibility(storageKey, elementSelector) {
     function (items) {
       const newVisibility = !items[storageKey];
 
+      const el = document.querySelector(elementSelector);
+      const toggleBtn = document.getElementById(
+        elementSelector === "#notes" ? "toggleTopNotes" : "toggleBottomNotes"
+      );
       if (newVisibility) {
-        $(elementSelector).show();
-        const toggleBtn =
-          elementSelector === "#notes"
-            ? $("#toggleTopNotes")
-            : $("#toggleBottomNotes");
-        toggleBtn.text("Hide Notes");
+        if (el) el.style.display = "block";
+        if (toggleBtn) toggleBtn.textContent = "Hide Notes";
       } else {
-        // Simply hide the notes without asking to clear them
-        $(elementSelector).hide();
-        const toggleBtn =
-          elementSelector === "#notes"
-            ? $("#toggleTopNotes")
-            : $("#toggleBottomNotes");
-        toggleBtn.text("Show Notes");
+        if (el) el.style.display = "none";
+        if (toggleBtn) toggleBtn.textContent = "Show Notes";
       }
 
       chrome.storage.sync.set({
@@ -2233,19 +2253,29 @@ function toggleTodoView() {
   if (viewMode === 0) {
     // Switch to deleted view
     viewMode = 1;
-    $("#toggleTodoViewBtn").text("Back");
-    $("#activeTodosContainer").hide();
-    $("#deletedTodosContainer").show();
-    $("#projectControls").hide();
-    $("#addTodoBtn").hide();
+    const toggleBtn = document.getElementById("toggleTodoViewBtn");
+    if (toggleBtn) toggleBtn.textContent = "Back";
+    const active = document.getElementById("activeTodosContainer");
+    if (active) active.style.display = "none";
+    const deleted = document.getElementById("deletedTodosContainer");
+    if (deleted) deleted.style.display = "block";
+    const projectControls = document.getElementById("projectControls");
+    if (projectControls) projectControls.style.display = "none";
+    const addBtn = document.getElementById("addTodoBtn");
+    if (addBtn) addBtn.style.display = "none";
   } else {
     // Switch to active view
     viewMode = 0;
-    $("#toggleTodoViewBtn").text("Settings");
-    $("#activeTodosContainer").show();
-    $("#deletedTodosContainer").hide();
-    $("#projectControls").show();
-    $("#addTodoBtn").show();
+    const toggleBtn = document.getElementById("toggleTodoViewBtn");
+    if (toggleBtn) toggleBtn.textContent = "Settings";
+    const active = document.getElementById("activeTodosContainer");
+    if (active) active.style.display = "block";
+    const deleted = document.getElementById("deletedTodosContainer");
+    if (deleted) deleted.style.display = "none";
+    const projectControls = document.getElementById("projectControls");
+    if (projectControls) projectControls.style.display = "block";
+    const addBtn = document.getElementById("addTodoBtn");
+    if (addBtn) addBtn.style.display = "inline-block";
   }
 }
 
@@ -2259,29 +2289,40 @@ function toggleTodosVisibility(setVisible) {
 
   if (todosVisible) {
     // Show TODOs
-    $("#todoContainer").css({
-      width: "250px",
-      "max-height": "80vh",
-      "overflow-y": "auto",
-    });
-    $("#toggleTodosVisibilityBtn").text("Hide TODOs");
-    $("#activeTodosContainer").show();
-    if (viewMode === 1) {
-      $("#deletedTodosContainer").show();
+    const todoContainer = document.getElementById("todoContainer");
+    if (todoContainer) {
+      todoContainer.style.width = "250px";
+      todoContainer.style.maxHeight = "80vh";
+      todoContainer.style.overflowY = "auto";
     }
-    $("#addTodoBtn").show();
+    const toggleBtn = document.getElementById("toggleTodosVisibilityBtn");
+    if (toggleBtn) toggleBtn.textContent = "Hide TODOs";
+    const active = document.getElementById("activeTodosContainer");
+    if (active) active.style.display = "block";
+    if (viewMode === 1) {
+      const deleted = document.getElementById("deletedTodosContainer");
+      if (deleted) deleted.style.display = "block";
+    }
+    const addBtn = document.getElementById("addTodoBtn");
+    if (addBtn) addBtn.style.display = "inline-block";
   } else {
     // Hide TODOs
-    $("#todoContainer").css({
-      width: "auto",
-      "max-height": "none",
-      "overflow-y": "visible",
-    });
-    $("#toggleTodosVisibilityBtn").text("Show");
-    $("#activeTodosContainer").hide();
-    $("#deletedTodosContainer").hide();
-    $("#allTodosContainer").hide();
-    $("#addTodoBtn").hide();
+    const todoContainer = document.getElementById("todoContainer");
+    if (todoContainer) {
+      todoContainer.style.width = "auto";
+      todoContainer.style.maxHeight = "none";
+      todoContainer.style.overflowY = "visible";
+    }
+    const toggleBtn = document.getElementById("toggleTodosVisibilityBtn");
+    if (toggleBtn) toggleBtn.textContent = "Show";
+    const active = document.getElementById("activeTodosContainer");
+    if (active) active.style.display = "none";
+    const deleted = document.getElementById("deletedTodosContainer");
+    if (deleted) deleted.style.display = "none";
+    const allTodos = document.getElementById("allTodosContainer");
+    if (allTodos) allTodos.style.display = "none";
+    const addBtn = document.getElementById("addTodoBtn");
+    if (addBtn) addBtn.style.display = "none";
   }
 
   // Save visibility state
@@ -3223,8 +3264,11 @@ function useExplicitFilePaths(items) {
     console.log(`Setting background to: ${fullPath}`);
 
     // Set the background image directly
-    $("#bodyid").css("background-image", `url(${fullPath})`);
-    $("#bodyid").css("background-color", "");
+    const bodyEl = document.getElementById("bodyid");
+    if (bodyEl) {
+      bodyEl.style.backgroundImage = `url(${fullPath})`;
+      bodyEl.style.backgroundColor = "";
+    }
 
     // Save that we're not using default background
     chrome.storage.local.set(
@@ -3259,8 +3303,11 @@ function useDirectFilePathAsFallback() {
     console.log(`Setting background to fallback: ${fullPath}`);
 
     // Set the background image directly
-    $("#bodyid").css("background-image", `url(${fullPath})`);
-    $("#bodyid").css("background-color", "");
+    const bodyEl = document.getElementById("bodyid");
+    if (bodyEl) {
+      bodyEl.style.backgroundImage = `url(${fullPath})`;
+      bodyEl.style.backgroundColor = "";
+    }
 
     // Save that we're not using default background
     chrome.storage.local.set(
@@ -3294,21 +3341,25 @@ function initTextSizes() {
     },
     function (items) {
       // Apply stored font sizes
-      $("#time").css("font-size", items.clockFontSize + "px");
-      $("#helloText").css("font-size", items.greetingFontSize + "px");
+      const timeEl = document.getElementById("time");
+      if (timeEl) timeEl.style.fontSize = items.clockFontSize + "px";
+      const helloEl = document.getElementById("helloText");
+      if (helloEl) helloEl.style.fontSize = items.greetingFontSize + "px";
 
       // Update display values
-      $("#clockSizeDisplay").text(items.clockFontSize + "px");
-      $("#greetingSizeDisplay").text(items.greetingFontSize + "px");
+      const clockDisp = document.getElementById("clockSizeDisplay");
+      if (clockDisp) clockDisp.textContent = items.clockFontSize + "px";
+      const greetDisp = document.getElementById("greetingSizeDisplay");
+      if (greetDisp) greetDisp.textContent = items.greetingFontSize + "px";
     }
   );
 }
 
 function adjustTextSize(type, change) {
   const storageKey = type === "clock" ? "clockFontSize" : "greetingFontSize";
-  const elementId = type === "clock" ? "#time" : "#helloText";
+  const elementId = type === "clock" ? "time" : "helloText";
   const displayId =
-    type === "clock" ? "#clockSizeDisplay" : "#greetingSizeDisplay";
+    type === "clock" ? "clockSizeDisplay" : "greetingSizeDisplay";
   const defaultSize = type === "clock" ? 128 : 96;
   const minSize = type === "clock" ? 32 : 24;
   const maxSize = type === "clock" ? 256 : 192;
@@ -3325,8 +3376,10 @@ function adjustTextSize(type, change) {
       if (newSize > maxSize) newSize = maxSize;
 
       // Apply the new size
-      $(elementId).css("font-size", newSize + "px");
-      $(displayId).text(newSize + "px");
+      const el = document.getElementById(elementId);
+      if (el) el.style.fontSize = newSize + "px";
+      const disp = document.getElementById(displayId);
+      if (disp) disp.textContent = newSize + "px";
 
       // Save to storage
       chrome.storage.sync.set({
@@ -3338,14 +3391,16 @@ function adjustTextSize(type, change) {
 
 function resetTextSize(type) {
   const storageKey = type === "clock" ? "clockFontSize" : "greetingFontSize";
-  const elementId = type === "clock" ? "#time" : "#helloText";
+  const elementId = type === "clock" ? "time" : "helloText";
   const displayId =
-    type === "clock" ? "#clockSizeDisplay" : "#greetingSizeDisplay";
+    type === "clock" ? "clockSizeDisplay" : "greetingSizeDisplay";
   const defaultSize = type === "clock" ? 128 : 96;
 
   // Apply default size
-  $(elementId).css("font-size", defaultSize + "px");
-  $(displayId).text(defaultSize + "px");
+  const el = document.getElementById(elementId);
+  if (el) el.style.fontSize = defaultSize + "px";
+  const disp = document.getElementById(displayId);
+  if (disp) disp.textContent = defaultSize + "px";
 
   // Save to storage
   chrome.storage.sync.set({
@@ -3356,7 +3411,6 @@ function resetTextSize(type) {
 // Countdown Timer Variables - moved to timer-module.js
 
 // Timer helper functions moved to timer-module.js
-
 
 // Save timer state to Chrome local storage
 function saveTimerState() {
@@ -3372,10 +3426,10 @@ function saveTimerState() {
       initialTotalSeconds: window.initialTotalSeconds || totalSeconds,
       timeInput: $("#timerDisplay").text(),
       timerLabel: $("#timerLabel").text().trim(),
-      savedAt: Date.now()
+      savedAt: Date.now(),
     };
-    
-    chrome.storage.local.set({ timerState: timerState }, function() {
+
+    chrome.storage.local.set({ timerState: timerState }, function () {
       console.log("Timer state saved:", timerState);
     });
   }
@@ -3384,61 +3438,71 @@ function saveTimerState() {
 // Load timer state from Chrome local storage
 function loadTimerState(callback) {
   if (typeof chrome !== "undefined" && chrome.storage) {
-    chrome.storage.local.get("timerState", function(result) {
+    chrome.storage.local.get("timerState", function (result) {
       if (result.timerState) {
         const state = result.timerState;
         const now = Date.now();
         const timeSinceSave = (now - state.savedAt) / 1000; // Convert to seconds
-        
+
         // Don't restore if the timer was reset (totalSeconds is 0 and not running/paused)
-        if (state.totalSeconds === 0 && !state.isRunning && !state.isPaused && !state.isCountingUp) {
+        if (
+          state.totalSeconds === 0 &&
+          !state.isRunning &&
+          !state.isPaused &&
+          !state.isCountingUp
+        ) {
           console.log("Timer was reset, not restoring state");
           if (callback) callback();
           return;
         }
-        
+
         // Restore timer label
         if (state.timerLabel) {
           $("#timerLabel").text(state.timerLabel);
         }
-        
+
         // Calculate current timer values based on saved state
         if (state.isRunning && !state.isPaused) {
           // Timer was running - calculate elapsed time since it started
           if (!state.isCountingUp) {
             // Countdown mode - calculate remaining time
             const elapsedSinceStart = (now - state.timerStartTime) / 1000;
-            totalSeconds = Math.max(0, Math.floor(state.initialTotalSeconds - elapsedSinceStart));
-            
+            totalSeconds = Math.max(
+              0,
+              Math.floor(state.initialTotalSeconds - elapsedSinceStart)
+            );
+
             if (totalSeconds === 0 && state.initialTotalSeconds > 0) {
               // Timer completed while tab was closed
               isCountingUp = true;
-              countUpSeconds = Math.floor(elapsedSinceStart - state.initialTotalSeconds);
+              countUpSeconds = Math.floor(
+                elapsedSinceStart - state.initialTotalSeconds
+              );
             }
           } else {
             // Count up mode - add elapsed time
             isCountingUp = true;
             countUpSeconds = Math.floor(state.countUpSeconds + timeSinceSave);
           }
-          
+
           // Set initial total seconds for proper tracking
           window.initialTotalSeconds = state.initialTotalSeconds;
-          
+
           // Resume the timer
           isRunning = false; // Set to false so we can properly start it
           isPaused = false;
           timerStartTime = state.timerStartTime; // Keep original start time
           pausedDuration = 0;
-          
+
           // Start the timer after a brief delay to ensure UI is ready
-          setTimeout(function() {
+          setTimeout(function () {
             if (!isCountingUp || totalSeconds > 0) {
               // Don't call startTimer as it resets the start time
               // Instead, directly set up the interval
               isRunning = true;
               $("#startPauseBtn").text("Pause").css("background", "#ffc107");
               $("#timerDisplay").attr("contenteditable", "false");
-              
+
               countdownInterval = setInterval(function () {
                 if (!isCountingUp) {
                   totalSeconds--;
@@ -3451,7 +3515,7 @@ function loadTimerState(callback) {
                   countUpSeconds++;
                   updateTimerDisplay();
                 }
-                
+
                 // Save state periodically while running
                 saveTimerState();
               }, 1000);
@@ -3463,7 +3527,6 @@ function loadTimerState(callback) {
               resumeCountUp();
             }
           }, 100);
-          
         } else if (state.isPaused) {
           // Timer was paused - restore paused state
           totalSeconds = state.totalSeconds;
@@ -3474,12 +3537,12 @@ function loadTimerState(callback) {
           pausedDuration = state.pausedDuration;
           timerStartTime = state.timerStartTime;
           window.initialTotalSeconds = state.initialTotalSeconds;
-          
+
           $("#startPauseBtn").text("Resume").css("background", "#28a745");
           $("#timeInput").prop("disabled", true);
           updateTimerDisplay();
         }
-        
+
         if (callback) callback();
       } else {
         if (callback) callback();

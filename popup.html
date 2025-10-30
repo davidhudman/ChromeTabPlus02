@@ -9,11 +9,7 @@
       rel="stylesheet"
       href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
     />
-    <!-- Include the jQuery library -->
-    <!--<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>-->
-    <!-- Include the jQuery Mobile library -->
-    <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <!-- Removing external jQuery libraries to comply with MV3 CSP -->
     <script src="popup.js"></script>
   </head>
   <body id="bodyid" style="width: 450px">
@@ -35,7 +31,7 @@
     <div><span>Fastest:</span><b id="btc-fastest"></b></div>
     <div><span>Halfhour:</span><b id="btc-halfhour"></b></div>
     <div><span>Hour:</span><b id="btc-hour"></b></div>
-    
+
     <h4><b>Eth Gas Price</b></h4>
     <div><span>Rapid:</span><b id="rapid"></b></div>
     <div><span>Fast:</span><b id="fast"></b></div>

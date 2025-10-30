@@ -14,9 +14,12 @@ var globalZipcode;
 
 function clickHandlers() {
   // sheetsAPI
-  $("#sheetsAPI").click(function () {
-    sheetsWriteRequest();
-  });
+  const sheetsApiBtn = document.getElementById("sheetsAPI");
+  if (sheetsApiBtn) {
+    sheetsApiBtn.addEventListener("click", function () {
+      sheetsWriteRequest();
+    });
+  }
 }
 
 function displaySunriseSunset() {
@@ -66,34 +69,46 @@ function getSunriseSunset(lat, lng) {
 
   // handle the request
   request.onreadystatechange = function () {
-    // put the JSON text into a new object
-    obj = JSON.parse(request.responseText);
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(`getSunriseSunset: HTTP ${request.status}`);
+      return;
+    }
+    try {
+      obj = JSON.parse(request.responseText);
+      const results = obj && obj.results;
+      if (!results || !results.sunrise || !results.sunset)
+        throw new Error("missing sunrise/sunset");
 
-    // put it inside a new div, and append it to the body - for some reason, this gets appended twice.
-    $("#sunset").html(
-      "<div>" +
-        "sunrise: " +
-        convertUTCtoTimeZone(obj.results.sunrise) +
-        " AM" +
-        "<br />" +
-        "sunset: " +
-        convertUTCtoTimeZone(obj.results.sunset) +
-        " PM" +
-        "</div>"
-    );
+      const sunsetEl = document.getElementById("sunset");
+      if (sunsetEl) {
+        sunsetEl.innerHTML =
+          "<div>" +
+          "sunrise: " +
+          convertUTCtoTimeZone(results.sunrise) +
+          " AM" +
+          "<br />" +
+          "sunset: " +
+          convertUTCtoTimeZone(results.sunset) +
+          " PM" +
+          "</div>";
+      }
 
-    chrome.storage.sync.set(
-      {
-        sunrise: convertUTCtoTimeZone(obj.results.sunrise),
-        sunset: convertUTCtoTimeZone(obj.results.sunset),
-      },
-      function () {}
-    );
+      chrome.storage.sync.set(
+        {
+          sunrise: convertUTCtoTimeZone(results.sunrise),
+          sunset: convertUTCtoTimeZone(results.sunset),
+        },
+        function () {}
+      );
+    } catch (e) {
+      console.error("getSunriseSunset: failed to parse response", e);
+    }
   };
 
   request.open(
     "GET",
-    "http://api.sunrise-sunset.org/json?lat=" +
+    "https://api.sunrise-sunset.org/json?lat=" +
       lat +
       "&lng=" +
       lng +
@@ -152,20 +167,35 @@ function getLatitudeAndLongitudeThenWeather(zip) {
 
   // handle the request
   request.onreadystatechange = function () {
-    if (request.readyState === 4 && request.status === 200) {
-      // put the JSON text into a new object
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(
+        `getLatitudeAndLongitudeThenWeather: HTTP ${request.status}`
+      );
+      return;
+    }
+
+    try {
       obj = JSON.parse(request.responseText);
-
-      latitude = obj.results[0].geometry.location.lat;
-      longitude = obj.results[0].geometry.location.lng;
-
+      const place = obj && obj.places && obj.places[0];
+      if (!place) throw new Error("no places found for zip");
+      latitude = parseFloat(place.latitude);
+      longitude = parseFloat(place.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw new Error("invalid lat/lon in response");
+      }
       getOpenMeteoWeather(latitude, longitude);
+    } catch (e) {
+      console.error(
+        "getLatitudeAndLongitudeThenWeather: failed to parse geocode response",
+        e
+      );
     }
   };
 
   request.open(
     "GET",
-    "http://maps.googleapis.com/maps/api/geocode/json?address=" + zip,
+    "https://api.zippopotam.us/us/" + encodeURIComponent(zip),
     true
   );
   request.send();
@@ -196,18 +226,20 @@ function getOpenMeteoWeather(lat, lng) {
       `;
 
       // Replace the weather display with our raw JSON display
-      $("#currentTemp").html(weatherHTML);
-      $("#highLowTemp").hide(); // Hide this since we're displaying raw data
+      const currentTempEl = document.getElementById("currentTemp");
+      if (currentTempEl) currentTempEl.innerHTML = weatherHTML;
+      const highLowEl = document.getElementById("highLowTemp");
+      if (highLowEl) highLowEl.style.display = "none"; // Hide this since we're displaying raw data
 
       // Add click handler to refresh weather data
-      $(".weather-container").click(function () {
-        // Show a loading message
-        $(this).html(
-          '<div style="text-align: center; padding: 20px;">Refreshing weather data...</div>'
-        );
-        // Refresh the weather data
-        getCurrentWeatherData();
-      });
+      const containers = document.getElementsByClassName("weather-container");
+      for (let i = 0; i < containers.length; i++) {
+        containers[i].addEventListener("click", function () {
+          this.innerHTML =
+            '<div style="text-align: center; padding: 20px;">Refreshing weather data...</div>';
+          getCurrentWeatherData();
+        });
+      }
 
       // Store the essential weather data in Chrome Storage
       chrome.storage.sync.set(
@@ -280,9 +312,11 @@ function getForecastWeatherData() {
     highTemp = JSON.stringify(obj.list[0].max) * 1.8 - 459.67;
 
     // display the data in HTML
-    $("#highLowTemp").html(
-      "<div>Hi/eve Temp: " + JSON.stringify(obj.list[0].eve) + "</div>"
-    );
+    const highLowEl2 = document.getElementById("highLowTemp");
+    if (highLowEl2) {
+      highLowEl2.innerHTML =
+        "<div>Hi/eve Temp: " + JSON.stringify(obj.list[0].eve) + "</div>";
+    }
   };
 
   request.open(
@@ -317,16 +351,29 @@ function getFxPrices() {
       );
       return;
     }
-    if (!obj || !obj.quotes) {
-      console.error("getFxPrices: missing quotes in response", obj);
+    if (!obj || (!obj.quotes && !obj.rates)) {
+      console.error("getFxPrices: missing quotes/rates in response", obj);
       return;
     }
 
     let fxString = "";
 
+    // Unified accessor supporting legacy {quotes: {USDEUR: 0.9}} and
+    // exchangerate.host {rates: {EUR: 0.9}} with base USD
+    function rateFor(usdxCode) {
+      if (obj.quotes && obj.quotes[usdxCode] != null) {
+        return Number(obj.quotes[usdxCode]);
+      }
+      if (obj.rates) {
+        const ccy = usdxCode.slice(3);
+        return Number(obj.rates[ccy]);
+      }
+      return NaN;
+    }
+
     function parseCurrencyPrice(currencyName) {
       try {
-        const rate = Number(obj.quotes[currencyName]);
+        const rate = rateFor(currencyName);
         if (!Number.isFinite(rate)) throw new Error("invalid rate");
         const direct = Math.round(10000 * rate) / 10000;
         const inverse = Math.round(10000 * (1 / rate)) / 10000;
@@ -351,12 +398,12 @@ function getFxPrices() {
 
     fxString += "$DXY: ";
     try {
-      const USDEUR = Number(obj.quotes["USDEUR"]);
-      const USDJPY = Number(obj.quotes["USDJPY"]);
-      const USDGBP = Number(obj.quotes["USDGBP"]);
-      const USDCAD = Number(obj.quotes["USDCAD"]);
-      const USDSEK = Number(obj.quotes["USDSEK"]);
-      const USDCHF = Number(obj.quotes["USDCHF"]);
+      const USDEUR = rateFor("USDEUR");
+      const USDJPY = rateFor("USDJPY");
+      const USDGBP = rateFor("USDGBP");
+      const USDCAD = rateFor("USDCAD");
+      const USDSEK = rateFor("USDSEK");
+      const USDCHF = rateFor("USDCHF");
       if (
         [USDEUR, USDJPY, USDGBP, USDCAD, USDSEK, USDCHF].every(Number.isFinite)
       ) {
@@ -391,7 +438,7 @@ function getFxPrices() {
   // request data from a FX provider
   request.open(
     "GET",
-    "http://apilayer.net/api/live?access_key=8d3ccddf951ea87e5c412a7a439e814c&format=1",
+    "https://api.exchangerate.host/latest?base=USD&symbols=EUR,JPY,GBP,CAD,SEK,CHF,CNY,HKD,RUB,AUD",
     true
   );
   request.send();
@@ -441,9 +488,15 @@ function getStockPrices() {
     }
 
     // display the quotes in HTML
-    $("#Stocks").html(
-      "<div>User entered: " + stockListHolder + "<br>" + stockString + "</div>"
-    );
+    const stocksEl = document.getElementById("Stocks");
+    if (stocksEl) {
+      stocksEl.innerHTML =
+        "<div>User entered: " +
+        stockListHolder +
+        "<br>" +
+        stockString +
+        "</div>";
+    }
   };
 
   // request data from a FX provider
@@ -482,7 +535,8 @@ function getNews() {
     }
 
     // display the data in HTML
-    $("#News").html("<div>" + newsString + "</div>");
+    const newsEl = document.getElementById("News");
+    if (newsEl) newsEl.innerHTML = "<div>" + newsString + "</div>";
   };
 
   request.open(
@@ -640,7 +694,12 @@ function getBtcTransxPrices() {
 }
 
 function getEthGasPrices() {
-  wsObj = new WebSocket(wsUrl);
+  try {
+    wsObj = new WebSocket(wsUrl);
+  } catch (e) {
+    console.error("getEthGasPrices: failed to create WebSocket", e);
+    return;
+  }
   wsObj.onopen = (evt) => {
     console.log("Connection open ...");
   };
@@ -652,6 +711,10 @@ function getEthGasPrices() {
     if (data.type) {
       updatePageGasPriceData(data.data);
     }
+  };
+
+  wsObj.onerror = (evt) => {
+    console.error("WebSocket error for gas prices", evt);
   };
 
   wsObj.onclose = (evt) => {

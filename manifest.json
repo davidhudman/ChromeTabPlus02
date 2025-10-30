@@ -15,15 +15,19 @@
   "permissions": ["bookmarks", "storage", "activeTab", "declarativeContent"],
   "host_permissions": [
     "https://docs.google.com/*",
-    "http://*.finance.yahoo.com/*",
-    "http://code.jquery.com/*",
-    "https://ajax.googleapis.com/*",
+    "https://api.open-meteo.com/*",
+    "https://api.sunrise-sunset.org/*",
+    "https://api.zippopotam.us/*",
+    "https://min-api.cryptocompare.com/*",
+    "https://mempool.space/*",
+    "wss://www.gasinfo.io/*",
+    "https://api.exchangerate.host/*",
     "file://*/*"
   ],
   "chrome_url_overrides": {
     "newtab": "newTab.html"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.open-meteo.com https://api.sunrise-sunset.org https://api.zippopotam.us https://min-api.cryptocompare.com https://mempool.space wss://www.gasinfo.io https://api.exchangerate.host"
   }
 }
