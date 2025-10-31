@@ -334,7 +334,8 @@ function timerComplete() {
   totalSeconds = 0;
 
   // Show completion notification
-  const label = $("#timerLabel").text().trim();
+  const labelEl = document.getElementById("timerLabel");
+  const label = (labelEl ? labelEl.textContent : "Timer").trim();
   showTimerNotification(`Timer completed: ${label} - Now counting up!`, 5000);
 
   // Save state when timer completes
@@ -342,15 +343,14 @@ function timerComplete() {
 
   // Flash the timer display briefly
   let flashCount = 0;
+  const timerDisplayEl = document.getElementById("timerDisplay");
   const flashInterval = setInterval(function () {
-    $("#timerDisplay").css(
-      "color",
-      flashCount % 2 === 0 ? "#28a745" : "#ffc107"
-    );
+    if (timerDisplayEl) {
+      timerDisplayEl.style.color = flashCount % 2 === 0 ? "#28a745" : "#ffc107";
+    }
     flashCount++;
     if (flashCount >= 6) {
       clearInterval(flashInterval);
-      // Timer will continue running in count-up mode
     }
   }, 500);
 }
@@ -370,23 +370,32 @@ window.timerComplete = timerComplete;
 
 // Toggle timer visibility
 function toggleTimerVisibility(setVisible) {
-  const container = $("#countdownContainer");
-  const showBtn = $("#showTimerBtn");
+  const container = document.getElementById("countdownContainer");
+  const showBtn = document.getElementById("showTimerBtn");
+  const toggleContainer = document.getElementById("timerToggleButton");
 
   if (setVisible === undefined) {
     // Toggle current state
-    setVisible = container.is(":hidden");
+    setVisible = !container || container.style.display === "none";
   }
 
   if (setVisible) {
-    container.fadeIn(300);
-    showBtn.text("Show Timer").fadeOut(300);
+    if (container) container.style.display = "block";
+    if (showBtn) {
+      showBtn.textContent = "Show Timer";
+      showBtn.style.display = "none";
+    }
+    if (toggleContainer) toggleContainer.style.display = "none";
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.sync.set({ timerVisible: true });
     }
   } else {
-    container.fadeOut(300);
-    showBtn.text("Show Timer").fadeIn(300);
+    if (container) container.style.display = "none";
+    if (showBtn) {
+      showBtn.textContent = "Show Timer";
+      showBtn.style.display = "block";
+    }
+    if (toggleContainer) toggleContainer.style.display = "block";
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.sync.set({ timerVisible: false });
     }
@@ -395,65 +404,64 @@ function toggleTimerVisibility(setVisible) {
 
 // Initialize countdown timer
 function initCountdownTimer() {
-  // Make timer display editable when not running
-  $("#timerDisplay").on("click", function () {
-    if (!isRunning && !isPaused) {
-      $(this).attr("contenteditable", "true").focus();
-      // Select all text
-      const range = document.createRange();
-      range.selectNodeContents(this);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  });
+  const timerDisplay = document.getElementById("timerDisplay");
+  const timerLabel = document.getElementById("timerLabel");
+  const startPauseBtnEl = document.getElementById("startPauseBtn");
+  const resetBtnEl = document.getElementById("resetBtn");
+  const toggleTimerBtnEl = document.getElementById("toggleTimerBtn");
+  const showTimerBtnEl = document.getElementById("showTimerBtn");
+  const toggleContainerEl = document.getElementById("timerToggleButton");
 
-  // Handle timer display input
-  $("#timerDisplay").on("blur", function () {
-    $(this).attr("contenteditable", "false");
-    const input = $(this).text().trim();
-    if (!input || !isValidTimeFormat(input)) {
-      $(this).text("00:00:00");
-    } else {
-      // Format the input properly
-      const formattedTime = formatTimeInput(input);
-      $(this).text(formattedTime);
-    }
-  });
-
-  // Handle Enter key on timer display
-  $("#timerDisplay").on("keypress", function (e) {
-    if (e.which === 13) {
-      e.preventDefault();
-      $(this).blur();
+  if (timerDisplay) {
+    timerDisplay.addEventListener("click", function () {
       if (!isRunning && !isPaused) {
-        startTimer();
+        this.setAttribute("contenteditable", "true");
+        this.focus();
+        const range = document.createRange();
+        range.selectNodeContents(this);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
       }
-    }
-  });
+    });
 
-  // Prevent non-numeric input
-  $("#timerDisplay").on("input", function () {
-    let text = $(this).text();
-    // Allow only numbers and colons
-    text = text.replace(/[^0-9:]/g, "");
-    if (text !== $(this).text()) {
-      $(this).text(text);
-      // Move cursor to end
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(this);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  });
+    timerDisplay.addEventListener("blur", function () {
+      this.setAttribute("contenteditable", "false");
+      const input = (this.textContent || "").trim();
+      if (!input || !isValidTimeFormat(input)) {
+        this.textContent = "00:00:00";
+      } else {
+        const formattedTime = formatTimeInput(input);
+        this.textContent = formattedTime;
+      }
+    });
 
-  // Make sure timer is visible initially and show timer button has text
-  $("#countdownContainer").show();
-  $("#showTimerBtn").text("Show Timer").hide();
+    timerDisplay.addEventListener("keypress", function (e) {
+      if (e.which === 13 || e.key === "Enter") {
+        e.preventDefault();
+        this.blur();
+        if (!isRunning && !isPaused) {
+          startTimer();
+        }
+      }
+    });
 
-  // Load saved timer state with fallback for non-extension environment
+    timerDisplay.addEventListener("input", function () {
+      let text = this.textContent || "";
+      text = text.replace(/[^0-9:]/g, "");
+      if (text !== this.textContent) {
+        this.textContent = text;
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(this);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+  }
+
+  // Initialize visibility from storage
   if (typeof chrome !== "undefined" && chrome.storage) {
     chrome.storage.sync.get(
       {
@@ -462,29 +470,47 @@ function initCountdownTimer() {
         lastTimerInput: "25:00",
       },
       function (items) {
-        $("#timerLabel").text(items.timerLabel);
+        if (timerLabel) timerLabel.textContent = items.timerLabel;
 
         // Set default timer display if not running
         if (!isRunning && !isPaused) {
-          $("#timerDisplay").text(formatTimeInput(items.lastTimerInput));
+          if (timerDisplay)
+            timerDisplay.textContent = formatTimeInput(items.lastTimerInput);
         }
 
-        // TEMPORARY: Force timer to be visible for debugging
-        console.log("Timer visibility setting:", items.timerVisible);
-        $("#countdownContainer").show();
-        $("#showTimerBtn").text("Show Timer").hide();
-
-        /* Commented out for debugging
+        // Apply saved visibility (but ensure a fallback button is visible)
         if (items.timerVisible === false) {
-          console.log("Timer was previously hidden, hiding it");
-          toggleTimerVisibility(false);
+          const countdownContainer =
+            document.getElementById("countdownContainer");
+          if (countdownContainer) countdownContainer.style.display = "none";
+          if (showTimerBtnEl) {
+            showTimerBtnEl.textContent = "Show Timer";
+            showTimerBtnEl.style.display = "block";
+          }
+          if (toggleContainerEl) toggleContainerEl.style.display = "block";
         } else {
-          console.log("Timer should be visible");
-          // Make sure it's visible
-          $("#countdownContainer").show();
-          $("#showTimerBtn").hide();
+          const countdownContainer =
+            document.getElementById("countdownContainer");
+          if (countdownContainer) countdownContainer.style.display = "block";
+          if (showTimerBtnEl) {
+            showTimerBtnEl.textContent = "Show Timer";
+            showTimerBtnEl.style.display = "none";
+          }
+          if (toggleContainerEl) toggleContainerEl.style.display = "none";
         }
-        */
+
+        // Safety: if both timer and its toggle are hidden (e.g., due to CSS), show the toggle
+        const countdownContainer =
+          document.getElementById("countdownContainer");
+        if (
+          countdownContainer &&
+          getComputedStyle(countdownContainer).display === "none" &&
+          showTimerBtnEl &&
+          getComputedStyle(showTimerBtnEl).display === "none"
+        ) {
+          showTimerBtnEl.style.display = "block";
+          if (toggleContainerEl) toggleContainerEl.style.display = "block";
+        }
 
         // Load timer state after setting up the UI
         if (window.loadTimerState) {
@@ -494,48 +520,51 @@ function initCountdownTimer() {
     );
   } else {
     // Fallback for testing outside Chrome extension
-    $("#timerLabel").text("Timer");
-    $("#timerDisplay").text("00:25:00");
+    if (timerLabel) timerLabel.textContent = "Timer";
+    if (timerDisplay) timerDisplay.textContent = "00:25:00";
   }
 
   // Event listeners
-  $("#startPauseBtn").click(function () {
-    if (!isRunning && !isPaused) {
-      startTimer();
-    } else if (isRunning) {
-      pauseTimer();
-    } else if (isPaused) {
-      resumeTimer();
-    }
-  });
+  if (startPauseBtnEl)
+    startPauseBtnEl.addEventListener("click", function () {
+      if (!isRunning && !isPaused) {
+        startTimer();
+      } else if (isRunning) {
+        pauseTimer();
+      } else if (isPaused) {
+        resumeTimer();
+      }
+    });
 
-  $("#resetBtn").click(function () {
-    resetTimer();
-  });
+  if (resetBtnEl) resetBtnEl.addEventListener("click", resetTimer);
 
-  $("#toggleTimerBtn").click(function () {
-    toggleTimerVisibility();
-  });
+  if (toggleTimerBtnEl)
+    toggleTimerBtnEl.addEventListener("click", function () {
+      toggleTimerVisibility();
+    });
 
-  $("#showTimerBtn").click(function () {
-    toggleTimerVisibility(true);
-  });
+  if (showTimerBtnEl)
+    showTimerBtnEl.addEventListener("click", function () {
+      toggleTimerVisibility(true);
+    });
 
   // Save timer label when edited
-  $("#timerLabel").on("blur", function () {
-    const label = $(this).text().trim() || "Timer";
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.sync.set({ timerLabel: label });
-    }
-  });
+  if (timerLabel)
+    timerLabel.addEventListener("blur", function () {
+      const label = (this.textContent || "").trim() || "Timer";
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.sync.set({ timerLabel: label });
+      }
+    });
 
   // Handle Enter key on timer label
-  $("#timerLabel").on("keypress", function (e) {
-    if (e.which === 13) {
-      e.preventDefault();
-      $(this).blur();
-    }
-  });
+  if (timerLabel)
+    timerLabel.addEventListener("keypress", function (e) {
+      if (e.which === 13 || e.key === "Enter") {
+        e.preventDefault();
+        this.blur();
+      }
+    });
 }
 
 // Export all timer functions

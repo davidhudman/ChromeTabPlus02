@@ -9,7 +9,22 @@
       rel="stylesheet"
       href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
     />
-    <!-- External jQuery scripts removed to comply with MV3 CSP -->
+    <!-- Local jQuery scripts (MV3 compliant) -->
+    <script src="jquery.min.js"></script>
+    <script src="jquery-ui.min.js"></script>
+    <style>
+      /* Zen mode hides everything except the time and greeting text */
+      body.zen-mode #notesText,
+      body.zen-mode #todoContainer,
+      body.zen-mode #bottomNotesText,
+      body.zen-mode #bgImagesDataContainer,
+      body.zen-mode #countdownContainer,
+      body.zen-mode #timerToggleButton,
+      body.zen-mode #backgroundTip,
+      body.zen-mode #projectControls {
+        display: none !important;
+      }
+    </style>
     <script src="timer-module.js"></script>
     <script src="newTab.js"></script>
   </head>
@@ -24,6 +39,31 @@
       height: 900px;
     "
   >
+    <!-- Zen Mode Toggle (always visible) -->
+    <div
+      id="zenModeButton"
+      style="
+        position: absolute;
+        top: 20px;
+        right: 340px; /* avoid overlap with TODO container at right */
+        z-index: 1000;
+      "
+    >
+      <button
+        id="toggleZenBtn"
+        style="
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        "
+      >
+        Zen
+      </button>
+    </div>
     <!-- Add this new div for the top-left notes -->
     <div
       id="notesText"
@@ -584,6 +624,7 @@
         transform: translateX(-50%) translateY(-50%);
         color: white;
         text-align: center;
+        z-index: 60;
       "
     >
       <h1

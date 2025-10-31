@@ -87,6 +87,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // Use delegated event handler for the background tip with dual approach
   document.addEventListener("click", function (e) {
     const target = e.target;
+    // If interacting with the project selector area, do nothing
+    const selectorContainer = document.getElementById(
+      "projectSelectorContainer"
+    );
+    if (selectorContainer && selectorContainer.contains(target)) return;
     if (target && target.id === "backgroundTip") {
       const t = document.getElementById("time");
       if (t) t.click();
@@ -98,6 +103,19 @@ document.addEventListener("DOMContentLoaded", function () {
   // Add blur event listener to save when user finishes editing
   const helloText = document.getElementById("helloText");
   if (helloText) {
+    // Ensure editable on click and focus/select text
+    helloText.addEventListener("click", function () {
+      this.setAttribute("contenteditable", "true");
+      this.style.pointerEvents = "auto";
+      this.focus();
+      // Select all contents
+      const range = document.createRange();
+      range.selectNodeContents(this);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+
     helloText.addEventListener("blur", function () {
       saveGreeting();
     });
@@ -326,9 +344,45 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize text sizes from storage
   initTextSizes();
 
+  // Initialize Zen mode (force off by default to avoid hiding timer)
+  applyZenMode(false);
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.sync.set({ zenModeEnabled: false });
+  }
+
+  const toggleZenBtn = document.getElementById("toggleZenBtn");
+  if (toggleZenBtn)
+    toggleZenBtn.addEventListener("click", function () {
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.sync.get({ zenModeEnabled: false }, function (items) {
+          const next = !items.zenModeEnabled;
+          applyZenMode(next);
+          chrome.storage.sync.set({ zenModeEnabled: next });
+        });
+      } else {
+        // Fallback if chrome.storage isn't available
+        const isZen = document.body.classList.contains("zen-mode");
+        applyZenMode(!isZen);
+      }
+    });
+
   // Initialize countdown timer
   initCountdownTimer();
 });
+
+// Apply Zen mode (hide everything except time and greeting)
+function applyZenMode(enabled) {
+  const body = document.getElementById("bodyid") || document.body;
+  if (enabled) {
+    body.classList.add("zen-mode");
+    const btn = document.getElementById("toggleZenBtn");
+    if (btn) btn.textContent = "Exit Zen";
+  } else {
+    body.classList.remove("zen-mode");
+    const btn = document.getElementById("toggleZenBtn");
+    if (btn) btn.textContent = "Zen";
+  }
+}
 
 function doesFileExist() {
   try {
@@ -986,6 +1040,8 @@ function toggleNotesVisibility(storageKey, elementSelector) {
 let viewMode = 0;
 let todosVisible = true;
 let currentProjectId = "all"; // Default to showing all projects
+// Track the last created todo to control focus behavior after render
+let lastCreatedTodoId = null;
 
 // TODO Feature functions
 function initTodos() {
@@ -1024,18 +1080,8 @@ function initProjects() {
       currentProjectId: "all", // Default to "all" projects
     },
     function (items) {
-      // Check if there's an "in progress" project and default to it if no current project is saved
+      // Respect saved selection; do not auto-switch away from "all"
       let targetProjectId = items.currentProjectId;
-
-      // If currentProjectId is "all" (default), try to find "in progress" project
-      if (targetProjectId === "all") {
-        const inProgressProject = items.projects.find(
-          (p) => p.name.toLowerCase() === "in progress"
-        );
-        if (inProgressProject) {
-          targetProjectId = inProgressProject.id;
-        }
-      }
 
       // Set the current project ID
       currentProjectId = targetProjectId;
@@ -1044,10 +1090,7 @@ function initProjects() {
       createProjectSelector(items.projects);
 
       // Set the selector to the target project
-      const projectSelector = document.getElementById("projectSelector");
-      if (projectSelector) {
-        projectSelector.value = currentProjectId;
-      }
+      setProjectSelectorValue(currentProjectId);
 
       // If we changed from the stored value, save the new selection
       if (targetProjectId !== items.currentProjectId) {
@@ -1095,53 +1138,89 @@ function createProjectSelector(projects) {
   label.style.marginRight = "5px";
   label.style.color = "white";
 
-  // Create the dropdown
-  const select = document.createElement("select");
-  select.id = "projectSelector";
-  select.style.padding = "5px";
-  select.style.borderRadius = "4px";
-  select.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-  select.style.color = "white";
-  select.style.border = "none";
-  select.style.flex = "1";
+  // Create a custom dropdown (display + menu)
+  const display = document.createElement("div");
+  display.id = "projectSelectorDisplay";
+  display.style.padding = "5px";
+  display.style.borderRadius = "4px";
+  display.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  display.style.color = "white";
+  display.style.border = "none";
+  display.style.flex = "1";
+  display.style.cursor = "pointer";
+  display.style.userSelect = "none";
+  display.textContent = "All Projects";
 
-  // Add "All Projects" option
-  const allOption = document.createElement("option");
-  allOption.value = "all";
-  allOption.textContent = "All Projects";
-  select.appendChild(allOption);
+  const menu = document.createElement("div");
+  menu.id = "projectSelectorMenu";
+  menu.style.position = "absolute";
+  menu.style.marginTop = "30px";
+  menu.style.background = "rgba(0,0,0,0.9)";
+  menu.style.color = "white";
+  menu.style.border = "1px solid rgba(255,255,255,0.2)";
+  menu.style.borderRadius = "4px";
+  menu.style.minWidth = "200px";
+  menu.style.zIndex = "2000";
+  menu.style.display = "none";
+  menu.style.maxHeight = "240px";
+  menu.style.overflowY = "auto";
 
-  // Add "No Project" option for TODOs without a project
-  const noProjectOption = document.createElement("option");
-  noProjectOption.value = "none";
-  noProjectOption.textContent = "No Project";
-  select.appendChild(noProjectOption);
+  function addOption(value, text) {
+    const item = document.createElement("div");
+    item.textContent = text;
+    item.dataset.value = value;
+    item.style.padding = "6px 10px";
+    item.style.cursor = "pointer";
+    item.addEventListener("mouseenter", function () {
+      this.style.backgroundColor = "rgba(255,255,255,0.1)";
+    });
+    item.addEventListener("mouseleave", function () {
+      this.style.backgroundColor = "transparent";
+    });
+    item.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setProjectSelectorValue(this.dataset.value, this.textContent);
+      // Save selection
+      chrome.storage.local.set({ currentProjectId: currentProjectId });
+      // Update UI (debounced)
+      queueRefreshTodos();
+      updateDeleteProjectButtonVisibility();
+      // Close menu
+      menu.style.display = "none";
+    });
+    menu.appendChild(item);
+  }
 
-  // Add options for each project
-  projects.forEach((project) => {
-    const option = document.createElement("option");
-    option.value = project.id;
-    option.textContent = project.name;
-    select.appendChild(option);
+  // Build menu options
+  addOption("all", "All Projects");
+  addOption("none", "No Project");
+  projects.forEach((project) => addOption(project.id, project.name));
+
+  // Toggle menu
+  display.addEventListener("click", function (e) {
+    e.stopPropagation();
+    // Position menu relative to display
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
   });
 
-  // Add change event listener
-  select.addEventListener("change", function () {
-    currentProjectId = this.value;
-    refreshTodoList();
-
-    // Save the current project selection to Chrome storage
-    chrome.storage.sync.set({
-      currentProjectId: currentProjectId,
-    });
-
-    // Show/hide delete button based on selection
-    updateDeleteProjectButtonVisibility();
+  // Close menu on outside click
+  document.addEventListener("click", function (e) {
+    if (menu.style.display === "block") {
+      if (!menu.contains(e.target) && e.target !== display) {
+        menu.style.display = "none";
+      }
+    }
   });
 
   // Add elements to selector row
   selectorRow.appendChild(label);
-  selectorRow.appendChild(select);
+  // Wrap display and menu in a relatively positioned container
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.flex = "1";
+  wrapper.appendChild(display);
+  wrapper.appendChild(menu);
+  selectorRow.appendChild(wrapper);
 
   // Add selector row to container
   selectorContainer.appendChild(selectorRow);
@@ -1183,6 +1262,27 @@ function createProjectSelector(projects) {
 
   // Set initial visibility of delete button
   updateDeleteProjectButtonVisibility();
+}
+
+// Helper to set selector UI and currentProjectId
+function setProjectSelectorValue(value, textOverride) {
+  currentProjectId = value;
+  const display = document.getElementById("projectSelectorDisplay");
+  if (display) {
+    if (textOverride) {
+      display.textContent = textOverride;
+    } else {
+      if (value === "all") display.textContent = "All Projects";
+      else if (value === "none") display.textContent = "No Project";
+      else {
+        // look up project name
+        chrome.storage.local.get({ projects: [] }, function (items) {
+          const p = items.projects.find((pr) => pr.id === value);
+          display.textContent = p ? p.name : "All Projects";
+        });
+      }
+    }
+  }
 }
 
 // Function to update delete project button visibility
@@ -1332,11 +1432,10 @@ function createNewProject() {
     addProjectToSelector(project);
 
     // Select the new project
-    document.getElementById("projectSelector").value = projectId;
-    currentProjectId = projectId;
+    setProjectSelectorValue(projectId);
 
-    // Save the current project selection to Chrome storage
-    chrome.storage.sync.set({
+    // Save the current project selection to Chrome storage (local)
+    chrome.storage.local.set({
       currentProjectId: currentProjectId,
     });
 
@@ -1398,6 +1497,7 @@ function createNewTodo() {
   };
 
   // Render the new TODO in the UI
+  lastCreatedTodoId = id;
   renderTodo(todo, false);
 
   // Save the new TODO to storage
@@ -1691,9 +1791,10 @@ function renderTodo(todo, isDeleted) {
     document.getElementById("todoList").appendChild(todoEl);
   }
 
-  // Set focus on the title if it's a new empty todo
-  if (todo.title === "" && !isDeleted) {
+  // Set focus only if this todo was just created now
+  if (!isDeleted && lastCreatedTodoId === todo.id) {
     titleEl.focus();
+    lastCreatedTodoId = null;
   }
 }
 
@@ -2220,6 +2321,17 @@ function moveTodoDown(todoId) {
   );
 }
 
+// Debounced refresh to avoid rapid re-renders causing flicker
+let refreshTodosScheduled = false;
+function queueRefreshTodos() {
+  if (refreshTodosScheduled) return;
+  refreshTodosScheduled = true;
+  requestAnimationFrame(function () {
+    refreshTodosScheduled = false;
+    refreshTodoList();
+  });
+}
+
 // Function to refresh the todo list UI
 function refreshTodoList() {
   // Only refresh active todos if we're in active view
@@ -2352,8 +2464,8 @@ function changeTodoProject(todoId, projectId) {
             todos: todos,
           },
           function () {
-            // Refresh the todo list
-            refreshTodoList();
+            // Refresh the todo list (debounced)
+            queueRefreshTodos();
           }
         );
       }
@@ -2409,7 +2521,7 @@ function showProjectContextMenu(e, todo) {
 
     // When changing to "No Project" through the context menu, also update current project filter
     currentProjectId = "none";
-    document.getElementById("projectSelector").value = "none";
+    setProjectSelectorValue("none");
 
     // Save the current project selection to Chrome storage
     chrome.storage.sync.set({
@@ -2465,7 +2577,7 @@ function showProjectContextMenu(e, todo) {
 
             // When changing a todo's project through the context menu, also update current project filter
             currentProjectId = project.id;
-            document.getElementById("projectSelector").value = project.id;
+            setProjectSelectorValue(project.id);
 
             // Save the current project selection to Chrome storage
             chrome.storage.sync.set({
