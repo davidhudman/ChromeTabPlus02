@@ -368,6 +368,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Initialize countdown timer
   initCountdownTimer();
+
+  // Migrate todos to include status and create board controls
+  migrateTodoStatusesIfNeeded(function () {
+    createBoardToggleAndContainer();
+    initShortcutsAndHelp();
+  });
 });
 
 // Apply Zen mode (hide everything except time and greeting)
@@ -1043,6 +1049,782 @@ let currentProjectId = "all"; // Default to showing all projects
 // Track the last created todo to control focus behavior after render
 let lastCreatedTodoId = null;
 
+// Board statuses
+const BOARD_STATUSES = ["backlog", "on_deck", "in_progress", "done"];
+let isBoardView = false;
+const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+// Migrate existing todos to include new fields if missing (status, dueDate, lastEdited)
+function migrateTodoStatusesIfNeeded(callback) {
+  chrome.storage.local.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      const todos = items.todos || [];
+      let updated = false;
+      const migrated = todos.map((t) => {
+        let next = { ...t };
+        if (!next.status) {
+          updated = true;
+          next.status = "backlog";
+        }
+        if (!next.dueDate) {
+          updated = true;
+          next.dueDate = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        }
+        if (!next.lastEdited) {
+          updated = true;
+          next.lastEdited = Date.now();
+        }
+        if (!next.size) {
+          updated = true;
+          next.size = "M";
+        }
+        return next;
+      });
+      if (updated) {
+        chrome.storage.local.set({ todos: migrated }, function () {
+          if (callback) callback();
+        });
+      } else {
+        if (callback) callback();
+      }
+    }
+  );
+}
+
+// Create Board toggle button and container
+function createBoardToggleAndContainer() {
+  const btn = document.createElement("button");
+  btn.id = "toggleBoardViewBtn";
+  btn.textContent = "Board";
+  btn.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  btn.style.color = "white";
+  btn.style.border = "none";
+  btn.style.padding = "8px 10px";
+  btn.style.borderRadius = "5px";
+  btn.style.cursor = "pointer";
+  btn.style.fontSize = "14px";
+  btn.style.marginRight = "5px";
+
+  btn.addEventListener("click", function () {
+    isBoardView = !isBoardView;
+    btn.textContent = isBoardView ? "List" : "Board";
+    applyTodoViewMode();
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ isBoardView: isBoardView });
+    }
+  });
+
+  const controls = document.getElementById("todoControlsTop");
+  if (controls) {
+    controls.insertBefore(
+      btn,
+      document.getElementById("toggleTodosVisibilityBtn")
+    );
+  }
+
+  // Create board container if missing (full-screen overlay)
+  if (!document.getElementById("boardContainer")) {
+    const board = document.createElement("div");
+    board.id = "boardContainer";
+    board.style.display = "none";
+    board.style.position = "absolute";
+    // Push down to clear the control buttons row
+    board.style.top = "160px";
+    board.style.left = "20px";
+    board.style.right = "20px";
+    board.style.bottom = "20px";
+    board.style.zIndex = "70"; // Above greeting (60), below todo controls (100)
+    board.style.padding = "6px";
+    board.style.background = "rgba(0,0,0,0.25)";
+    board.style.borderRadius = "6px";
+    board.style.overflow = "auto";
+
+    const host = document.getElementById("bodyid") || document.body;
+    host.appendChild(board);
+  }
+
+  // Initialize persisted board/list preference
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.local.get({ isBoardView: false }, function (it) {
+      isBoardView = !!it.isBoardView;
+      btn.textContent = isBoardView ? "List" : "Board";
+      applyTodoViewMode();
+    });
+  }
+
+  // Add Help button
+  const helpBtn = document.createElement("button");
+  helpBtn.id = "showHelpBtn";
+  helpBtn.textContent = "Help";
+  helpBtn.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  helpBtn.style.color = "white";
+  helpBtn.style.border = "none";
+  helpBtn.style.padding = "8px 10px";
+  helpBtn.style.borderRadius = "5px";
+  helpBtn.style.cursor = "pointer";
+  helpBtn.style.fontSize = "14px";
+  helpBtn.style.marginRight = "5px";
+  helpBtn.addEventListener("click", function () {
+    toggleHelpOverlay(true);
+  });
+  const controls2 = document.getElementById("todoControlsTop");
+  if (controls2)
+    controls2.insertBefore(
+      helpBtn,
+      document.getElementById("toggleTodosVisibilityBtn")
+    );
+}
+
+function initShortcutsAndHelp() {
+  document.addEventListener("keydown", function (e) {
+    const t = e.target;
+    const isTyping =
+      t &&
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.isContentEditable);
+    if (isTyping) return;
+    const key = e.key.toLowerCase();
+    if (key === "b") {
+      isBoardView = true;
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.local.set({ isBoardView: true });
+      }
+      const btn = document.getElementById("toggleBoardViewBtn");
+      if (btn) btn.textContent = "List";
+      applyTodoViewMode();
+    } else if (key === "l") {
+      isBoardView = false;
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.local.set({ isBoardView: false });
+      }
+      const btn = document.getElementById("toggleBoardViewBtn");
+      if (btn) btn.textContent = "Board";
+      applyTodoViewMode();
+    } else if (key === "d") {
+      createNewTodo();
+    } else if (key === "h" || key === "?") {
+      toggleHelpOverlay(true);
+    }
+  });
+}
+
+function toggleHelpOverlay(show) {
+  let overlay = document.getElementById("helpOverlay");
+  if (show) {
+    if (overlay) return;
+    overlay = document.createElement("div");
+    overlay.id = "helpOverlay";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.right = "0";
+    overlay.style.bottom = "0";
+    overlay.style.background = "rgba(0,0,0,0.7)";
+    overlay.style.zIndex = "2200";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+
+    const panel = document.createElement("div");
+    panel.style.background = "#fff";
+    panel.style.color = "#333";
+    panel.style.borderRadius = "8px";
+    panel.style.boxShadow = "0 10px 24px rgba(0,0,0,0.3)";
+    panel.style.width = "min(680px, 90vw)";
+    panel.style.padding = "16px";
+
+    const title = document.createElement("div");
+    title.textContent = "Keyboard Shortcuts";
+    title.style.fontWeight = "bold";
+    title.style.fontSize = "16px";
+    title.style.marginBottom = "8px";
+    panel.appendChild(title);
+
+    const list = document.createElement("div");
+    list.style.fontSize = "14px";
+    list.innerHTML =
+      "<div><b>B</b> = Board view</div>" +
+      "<div><b>L</b> = List view</div>" +
+      "<div><b>D</b> = New todo</div>" +
+      "<div><b>H</b>/<b>?</b> = Toggle this help</div>" +
+      "<div><b>Esc</b> = Close dialogs</div>";
+    panel.appendChild(list);
+
+    const closeRow = document.createElement("div");
+    closeRow.style.display = "flex";
+    closeRow.style.justifyContent = "flex-end";
+    closeRow.style.marginTop = "12px";
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "Close";
+    closeBtn.style.padding = "8px 12px";
+    closeBtn.style.border = "none";
+    closeBtn.style.borderRadius = "4px";
+    closeBtn.style.cursor = "pointer";
+    closeBtn.addEventListener("click", function () {
+      toggleHelpOverlay(false);
+    });
+    closeRow.appendChild(closeBtn);
+    panel.appendChild(closeRow);
+
+    overlay.appendChild(panel);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) toggleHelpOverlay(false);
+    });
+    document.addEventListener(
+      "keydown",
+      function onEsc(e) {
+        if (e.key === "Escape") {
+          toggleHelpOverlay(false);
+          document.removeEventListener("keydown", onEsc);
+        }
+      },
+      { once: true }
+    );
+    document.body.appendChild(overlay);
+  } else {
+    if (overlay) overlay.remove();
+  }
+}
+
+function applyTodoViewMode() {
+  const active = document.getElementById("activeTodosContainer");
+  const deleted = document.getElementById("deletedTodosContainer");
+  const projectControls = document.getElementById("projectControls");
+  const addBtn = document.getElementById("addTodoBtn");
+  const board = document.getElementById("boardContainer");
+
+  if (isBoardView) {
+    if (active) active.style.display = "none";
+    if (deleted) deleted.style.display = "none";
+    if (addBtn) addBtn.style.display = "inline-block";
+    if (projectControls)
+      projectControls.style.display = viewMode === 0 ? "block" : "none";
+    if (board) {
+      board.style.display = "block";
+      renderBoard();
+    }
+  } else {
+    // Show list view per viewMode
+    if (board) board.style.display = "none";
+    if (viewMode === 0) {
+      if (active) active.style.display = "block";
+      if (deleted) deleted.style.display = "none";
+      if (projectControls) projectControls.style.display = "block";
+      if (addBtn) addBtn.style.display = "inline-block";
+      refreshTodoList();
+    } else {
+      if (active) active.style.display = "none";
+      if (deleted) deleted.style.display = "block";
+      if (projectControls) projectControls.style.display = "none";
+      if (addBtn) addBtn.style.display = "none";
+    }
+  }
+}
+
+function renderBoard() {
+  const board = document.getElementById("boardContainer");
+  if (!board) return;
+  board.innerHTML = "";
+
+  // Load hidden status preferences and then build columns + cards
+  chrome.storage.local.get(
+    {
+      boardHiddenStatuses: {},
+      todos: [],
+    },
+    function (items) {
+      const hidden = items.boardHiddenStatuses || {};
+
+      const columnsWrap = document.createElement("div");
+      columnsWrap.style.display = "flex";
+      columnsWrap.style.gap = "8px";
+      columnsWrap.style.width = "100%";
+
+      BOARD_STATUSES.forEach((status) => {
+        const col = document.createElement("div");
+        col.className = "board-column";
+        col.style.flex = "1 1 0";
+        col.style.background = "rgba(0,0,0,0.25)";
+        col.style.border = "1px solid rgba(255,255,255,0.15)";
+        col.style.borderRadius = "6px";
+        col.style.padding = "6px";
+        col.style.minWidth = "260px";
+
+        const header = document.createElement("div");
+        header.style.display = "flex";
+        header.style.alignItems = "center";
+        header.style.justifyContent = "space-between";
+        header.style.marginBottom = "6px";
+
+        const title = document.createElement("div");
+        title.textContent = status.replace(/_/g, " ");
+        title.style.fontWeight = "bold";
+        title.style.color = "#fff";
+        header.appendChild(title);
+
+        const toggleBtn = document.createElement("button");
+        toggleBtn.textContent = hidden[status] ? "Show" : "Hide";
+        toggleBtn.style.background = "rgba(0,0,0,0.6)";
+        toggleBtn.style.color = "#fff";
+        toggleBtn.style.border = "none";
+        toggleBtn.style.padding = "4px 8px";
+        toggleBtn.style.borderRadius = "4px";
+        toggleBtn.style.fontSize = "12px";
+        toggleBtn.style.cursor = "pointer";
+        header.appendChild(toggleBtn);
+
+        col.appendChild(header);
+
+        const body = document.createElement("div");
+        body.className = "board-col-body";
+        body.style.display = hidden[status] ? "none" : "flex";
+        body.style.flexDirection = "column";
+        body.style.gap = "6px";
+        body.style.minHeight = "60px";
+        body.style.paddingBottom = "6px";
+        body.style.borderTop = "1px dashed rgba(255,255,255,0.15)";
+        body.dataset.status = status;
+
+        // Allow dropping on both the body and the whole column area
+        function handleDragOver(e) {
+          e.preventDefault();
+          try {
+            e.dataTransfer.dropEffect = "move";
+          } catch (_) {}
+        }
+        function handleDrop(e) {
+          e.preventDefault();
+          const todoId =
+            (e.dataTransfer && e.dataTransfer.getData("text/plain")) || "";
+          const targetStatus = this.dataset.status || status;
+          if (todoId && targetStatus) changeTodoStatus(todoId, targetStatus);
+        }
+        body.addEventListener("dragover", handleDragOver);
+        body.addEventListener("drop", handleDrop);
+        col.dataset.status = status;
+        col.addEventListener("dragover", handleDragOver);
+        col.addEventListener("drop", handleDrop);
+
+        // Toggle visibility
+        toggleBtn.addEventListener("click", function () {
+          const nextHidden = { ...hidden, [status]: !hidden[status] };
+          chrome.storage.local.set(
+            { boardHiddenStatuses: nextHidden },
+            function () {
+              renderBoard();
+            }
+          );
+        });
+
+        col.appendChild(body);
+        columnsWrap.appendChild(col);
+      });
+
+      board.appendChild(columnsWrap);
+
+      // Populate cards
+      const todos = items.todos || [];
+      const filtered = todos.filter((t) => {
+        if (currentProjectId === "all") return true;
+        if (currentProjectId === "none") return !t.projectId;
+        return t.projectId === currentProjectId;
+      });
+      filtered.forEach((t) => addCardToBoard(t));
+    }
+  );
+}
+
+function addCardToBoard(todo) {
+  const colBody = document.querySelector(
+    `.board-col-body[data-status="${todo.status || "backlog"}"]`
+  );
+  if (!colBody) return;
+  const card = document.createElement("div");
+  card.className = "board-card";
+  card.style.background = "#fef9b0";
+  card.style.color = "#333";
+  card.style.padding = "8px";
+  card.style.borderRadius = "5px";
+  card.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+  card.style.cursor = "grab";
+  card.draggable = true;
+
+  const headerRow = document.createElement("div");
+  headerRow.style.display = "flex";
+  headerRow.style.alignItems = "center";
+  headerRow.style.justifyContent = "space-between";
+
+  const title = document.createElement("div");
+  title.textContent = todo.title || "Untitled";
+  title.style.fontWeight = "bold";
+  title.style.flex = "1";
+  headerRow.appendChild(title);
+
+  const sizeBadge = document.createElement("span");
+  sizeBadge.textContent = (todo.size || "M").toUpperCase();
+  sizeBadge.style.background = "rgba(0,0,0,0.15)";
+  sizeBadge.style.color = "#333";
+  sizeBadge.style.border = "1px solid rgba(0,0,0,0.2)";
+  sizeBadge.style.borderRadius = "10px";
+  sizeBadge.style.padding = "2px 6px";
+  sizeBadge.style.fontSize = "11px";
+  sizeBadge.style.marginLeft = "8px";
+  headerRow.appendChild(sizeBadge);
+
+  card.appendChild(headerRow);
+
+  // Due indicator
+  const due = document.createElement("div");
+  due.style.fontSize = "11px";
+  due.style.marginTop = "2px";
+  due.style.color = "#555";
+  const days = daysUntil(todo.dueDate);
+  if (days === 0) due.textContent = "due today";
+  else if (days > 0)
+    due.textContent = `due in ${days} day${days === 1 ? "" : "s"}`;
+  else
+    due.textContent = `${Math.abs(days)} day${
+      Math.abs(days) === 1 ? "" : "s"
+    } overdue`;
+  card.appendChild(due);
+
+  // Note: Hide descriptions on board cards; they are visible in the editor modal
+
+  card.addEventListener("dragstart", function (e) {
+    try {
+      e.dataTransfer.setData("text/plain", todo.id);
+      e.dataTransfer.effectAllowed = "move";
+    } catch (_) {}
+    card.dataset.dragging = "1";
+  });
+  card.addEventListener("dragend", function () {
+    delete card.dataset.dragging;
+  });
+
+  // Click to open editor (ignore if just dragged)
+  card.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (card.dataset.dragging === "1") return;
+    openBoardCardEditor(todo.id);
+  });
+
+  colBody.appendChild(card);
+}
+
+function changeTodoStatus(todoId, newStatus) {
+  if (!BOARD_STATUSES.includes(newStatus)) return;
+  chrome.storage.local.get(
+    {
+      todos: [],
+    },
+    function (items) {
+      const todos = items.todos || [];
+      const idx = todos.findIndex((t) => t.id === todoId);
+      if (idx === -1) return;
+      todos[idx] = { ...todos[idx], status: newStatus };
+      chrome.storage.local.set({ todos }, function () {
+        if (isBoardView) renderBoard();
+      });
+    }
+  );
+}
+
+// Modal editor for board cards
+function openBoardCardEditor(todoId) {
+  // Remove any existing modal
+  const existing = document.getElementById("boardCardModal");
+  if (existing) existing.remove();
+
+  // Fetch todo
+  chrome.storage.local.get({ todos: [] }, function (items) {
+    const todos = items.todos || [];
+    const todo = todos.find((t) => t.id === todoId);
+    if (!todo) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "boardCardModal";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.right = "0";
+    overlay.style.bottom = "0";
+    overlay.style.background = "rgba(0,0,0,0.6)";
+    overlay.style.zIndex = "2000";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+
+    const panel = document.createElement("div");
+    panel.style.background = "#fff";
+    panel.style.color = "#333";
+    panel.style.borderRadius = "8px";
+    panel.style.boxShadow = "0 10px 24px rgba(0,0,0,0.3)";
+    panel.style.width = "min(760px, 90vw)";
+    panel.style.maxHeight = "80vh";
+    panel.style.overflow = "auto";
+    panel.style.padding = "16px";
+
+    const heading = document.createElement("div");
+    heading.textContent = "Edit Card";
+    heading.style.fontWeight = "bold";
+    heading.style.fontSize = "16px";
+    heading.style.marginBottom = "10px";
+    panel.appendChild(heading);
+
+    const titleLabel = document.createElement("div");
+    titleLabel.textContent = "Title";
+    titleLabel.style.fontSize = "12px";
+    titleLabel.style.margin = "6px 0 4px";
+    panel.appendChild(titleLabel);
+
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = todo.title || "";
+    titleInput.style.width = "100%";
+    titleInput.style.padding = "8px";
+    titleInput.style.border = "1px solid #ccc";
+    titleInput.style.borderRadius = "4px";
+    panel.appendChild(titleInput);
+
+    const descLabel = document.createElement("div");
+    descLabel.textContent = "Description";
+    descLabel.style.fontSize = "12px";
+    descLabel.style.margin = "10px 0 4px";
+    panel.appendChild(descLabel);
+
+    const descInput = document.createElement("textarea");
+    descInput.value = todo.description || "";
+    descInput.style.width = "100%";
+    descInput.style.minHeight = "160px";
+    descInput.style.padding = "8px";
+    descInput.style.border = "1px solid #ccc";
+    descInput.style.borderRadius = "4px";
+    descInput.style.resize = "vertical";
+    panel.appendChild(descInput);
+
+    // Dates and project
+    const datesRow = document.createElement("div");
+    datesRow.style.display = "flex";
+    datesRow.style.gap = "10px";
+    datesRow.style.marginTop = "10px";
+
+    const dueWrap = document.createElement("div");
+    const dueLbl = document.createElement("div");
+    dueLbl.textContent = "Due date";
+    dueLbl.style.fontSize = "12px";
+    const dueInput = document.createElement("input");
+    dueInput.type = "date";
+    dueInput.value = toInputDate(
+      todo.dueDate || Date.now() + 7 * 24 * 60 * 60 * 1000
+    );
+    dueWrap.appendChild(dueLbl);
+    dueWrap.appendChild(dueInput);
+
+    const editedWrap = document.createElement("div");
+    const editedLbl = document.createElement("div");
+    editedLbl.textContent = "Last edited";
+    editedLbl.style.fontSize = "12px";
+    const editedInput = document.createElement("input");
+    editedInput.type = "date";
+    editedInput.value = toInputDate(todo.lastEdited || Date.now());
+    editedWrap.appendChild(editedLbl);
+    editedWrap.appendChild(editedInput);
+
+    const projectWrap = document.createElement("div");
+    const projectLbl = document.createElement("div");
+    projectLbl.textContent = "Project";
+    projectLbl.style.fontSize = "12px";
+    const projectSelect = document.createElement("select");
+    projectSelect.style.minWidth = "180px";
+    const optAll = document.createElement("option");
+    optAll.value = "none";
+    optAll.textContent = "No Project";
+    projectSelect.appendChild(optAll);
+    chrome.storage.local.get({ projects: [] }, function (res) {
+      (res.projects || []).forEach((p) => {
+        const o = document.createElement("option");
+        o.value = p.id;
+        o.textContent = p.name;
+        projectSelect.appendChild(o);
+      });
+      projectSelect.value = todo.projectId ? todo.projectId : "none";
+    });
+    projectWrap.appendChild(projectLbl);
+    projectWrap.appendChild(projectSelect);
+
+    datesRow.appendChild(dueWrap);
+    datesRow.appendChild(editedWrap);
+    datesRow.appendChild(projectWrap);
+    // Status select
+    const statusWrap = document.createElement("div");
+    const statusLbl = document.createElement("div");
+    statusLbl.textContent = "Status";
+    statusLbl.style.fontSize = "12px";
+    const statusSelect = document.createElement("select");
+    BOARD_STATUSES.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s.replace(/_/g, " ");
+      statusSelect.appendChild(opt);
+    });
+    statusSelect.value = todo.status || "backlog";
+    statusWrap.appendChild(statusLbl);
+    statusWrap.appendChild(statusSelect);
+    datesRow.appendChild(statusWrap);
+
+    // T-shirt size
+    const sizeWrap = document.createElement("div");
+    const sizeLbl = document.createElement("div");
+    sizeLbl.textContent = "Size";
+    sizeLbl.style.fontSize = "12px";
+    const sizeSelect = document.createElement("select");
+    TSHIRT_SIZES.forEach((sz) => {
+      const o = document.createElement("option");
+      o.value = sz;
+      o.textContent = sz;
+      sizeSelect.appendChild(o);
+    });
+    sizeSelect.value = (todo.size || "M").toUpperCase();
+    sizeWrap.appendChild(sizeLbl);
+    sizeWrap.appendChild(sizeSelect);
+    datesRow.appendChild(sizeWrap);
+    panel.appendChild(datesRow);
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.justifyContent = "flex-end";
+    actions.style.gap = "8px";
+    actions.style.marginTop = "12px";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.style.padding = "8px 12px";
+    cancelBtn.style.border = "none";
+    cancelBtn.style.borderRadius = "4px";
+    cancelBtn.style.cursor = "pointer";
+    cancelBtn.addEventListener("click", function () {
+      overlay.remove();
+    });
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Save";
+    saveBtn.style.background = "#28a745";
+    saveBtn.style.color = "#fff";
+    saveBtn.style.padding = "8px 12px";
+    saveBtn.style.border = "none";
+    saveBtn.style.borderRadius = "4px";
+    saveBtn.style.cursor = "pointer";
+    saveBtn.addEventListener("click", function () {
+      const newTitle = titleInput.value || "";
+      const newDesc = descInput.value || "";
+      const newDue =
+        fromInputDate(dueInput.value) || todo.dueDate || Date.now();
+      const newEdited = fromInputDate(editedInput.value) || Date.now();
+      const newProjectId =
+        projectSelect.value === "none" ? null : projectSelect.value;
+      const newStatus = statusSelect.value || todo.status || "backlog";
+      const newSize = (sizeSelect.value || "M").toUpperCase();
+      chrome.storage.local.get({ todos: [] }, function (it) {
+        const arr = it.todos || [];
+        const idx = arr.findIndex((t) => t.id === todoId);
+        if (idx === -1) return;
+        arr[idx] = {
+          ...arr[idx],
+          title: newTitle,
+          description: newDesc,
+          dueDate: newDue,
+          lastEdited: newEdited,
+          projectId: newProjectId,
+          status: newStatus,
+          size: newSize,
+        };
+        chrome.storage.local.set({ todos: arr }, function () {
+          overlay.remove();
+          if (isBoardView) renderBoard();
+          else refreshTodoList();
+        });
+      });
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.style.background = "#dc3545";
+    deleteBtn.style.color = "#fff";
+    deleteBtn.style.padding = "8px 12px";
+    deleteBtn.style.border = "none";
+    deleteBtn.style.borderRadius = "4px";
+    deleteBtn.style.cursor = "pointer";
+    deleteBtn.addEventListener("click", function () {
+      if (confirm("Delete this card?")) {
+        moveTodoToDeleted(todoId);
+        overlay.remove();
+        if (isBoardView) renderBoard();
+        else refreshTodoList();
+      }
+    });
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(deleteBtn);
+    actions.appendChild(saveBtn);
+    panel.appendChild(actions);
+
+    overlay.appendChild(panel);
+
+    // Close on overlay click or Escape
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.addEventListener(
+      "keydown",
+      function escHandler(e) {
+        if (e.key === "Escape") {
+          overlay.remove();
+          document.removeEventListener("keydown", escHandler);
+        }
+      },
+      { once: true }
+    );
+
+    document.body.appendChild(overlay);
+    titleInput.focus();
+  });
+}
+
+// Helpers to convert ms timestamps <-> input[type=date] strings
+function toInputDate(ms) {
+  try {
+    const d = new Date(typeof ms === "number" ? ms : Date.parse(ms));
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  } catch (_) {
+    return "";
+  }
+}
+function fromInputDate(s) {
+  if (!s) return null;
+  const t = Date.parse(s);
+  return isNaN(t) ? null : t;
+}
+
+// Compute days until a timestamp (negative when overdue)
+function daysUntil(ms) {
+  if (!ms) return 0;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(ms);
+  end.setHours(0, 0, 0, 0);
+  const diff = Math.round(
+    (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  return diff;
+}
+
 // TODO Feature functions
 function initTodos() {
   // Initialize projects first
@@ -1151,18 +1933,18 @@ function createProjectSelector(projects) {
   display.style.userSelect = "none";
   display.textContent = "All Projects";
 
+  // Floating portal menu attached to body (not clipped by right panel)
   const menu = document.createElement("div");
   menu.id = "projectSelectorMenu";
-  menu.style.position = "absolute";
-  menu.style.marginTop = "30px";
-  menu.style.background = "rgba(0,0,0,0.9)";
+  menu.style.position = "fixed";
+  menu.style.background = "rgba(0,0,0,0.95)";
   menu.style.color = "white";
   menu.style.border = "1px solid rgba(255,255,255,0.2)";
-  menu.style.borderRadius = "4px";
+  menu.style.borderRadius = "6px";
   menu.style.minWidth = "200px";
-  menu.style.zIndex = "2000";
+  menu.style.zIndex = "3000";
   menu.style.display = "none";
-  menu.style.maxHeight = "240px";
+  menu.style.boxShadow = "0 8px 24px rgba(0,0,0,0.4)";
   menu.style.overflowY = "auto";
 
   function addOption(value, text) {
@@ -1184,6 +1966,7 @@ function createProjectSelector(projects) {
       chrome.storage.local.set({ currentProjectId: currentProjectId });
       // Update UI (debounced)
       queueRefreshTodos();
+      if (isBoardView) renderBoard();
       updateDeleteProjectButtonVisibility();
       // Close menu
       menu.style.display = "none";
@@ -1196,30 +1979,51 @@ function createProjectSelector(projects) {
   addOption("none", "No Project");
   projects.forEach((project) => addOption(project.id, project.name));
 
+  // Portal helpers
+  function positionMenu() {
+    const rect = display.getBoundingClientRect();
+    const margin = 6;
+    menu.style.left = rect.left + "px";
+    menu.style.top = rect.bottom + margin + "px";
+    menu.style.minWidth = rect.width + "px";
+    const maxH = Math.max(
+      120,
+      window.innerHeight - (rect.bottom + margin) - 10
+    );
+    menu.style.maxHeight = maxH + "px";
+  }
+  function openMenu() {
+    if (menu.parentNode !== document.body) document.body.appendChild(menu);
+    positionMenu();
+    menu.style.display = "block";
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    document.addEventListener("click", outsideClose, { once: true });
+  }
+  function closeMenu() {
+    menu.style.display = "none";
+    window.removeEventListener("resize", positionMenu);
+    window.removeEventListener("scroll", positionMenu, true);
+  }
+  function outsideClose(ev) {
+    if (!menu.contains(ev.target) && ev.target !== display) {
+      closeMenu();
+    }
+  }
+
   // Toggle menu
   display.addEventListener("click", function (e) {
     e.stopPropagation();
-    // Position menu relative to display
-    menu.style.display = menu.style.display === "none" ? "block" : "none";
-  });
-
-  // Close menu on outside click
-  document.addEventListener("click", function (e) {
-    if (menu.style.display === "block") {
-      if (!menu.contains(e.target) && e.target !== display) {
-        menu.style.display = "none";
-      }
-    }
+    if (menu.style.display === "block") closeMenu();
+    else openMenu();
   });
 
   // Add elements to selector row
   selectorRow.appendChild(label);
-  // Wrap display and menu in a relatively positioned container
   const wrapper = document.createElement("div");
   wrapper.style.position = "relative";
   wrapper.style.flex = "1";
   wrapper.appendChild(display);
-  wrapper.appendChild(menu);
   selectorRow.appendChild(wrapper);
 
   // Add selector row to container
@@ -1494,14 +2298,23 @@ function createNewTodo() {
     expanded: false,
     projectId: projectId, // Associate with current project if applicable
     createdAt: Date.now(),
+    status: "backlog",
+    dueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    lastEdited: Date.now(),
+    size: "M",
   };
 
-  // Render the new TODO in the UI
+  // Render the new TODO in the UI (list mode)
   lastCreatedTodoId = id;
-  renderTodo(todo, false);
+  if (!isBoardView) renderTodo(todo, false);
 
-  // Save the new TODO to storage
-  saveTodo(todo);
+  // Save the new TODO to storage; open modal in board mode after save
+  saveTodo(todo, function () {
+    if (isBoardView) {
+      renderBoard();
+      openBoardCardEditor(id);
+    }
+  });
 }
 
 // Update the renderTodo function to properly handle line breaks in descriptions
@@ -1798,7 +2611,7 @@ function renderTodo(todo, isDeleted) {
   }
 }
 
-function saveTodo(todo) {
+function saveTodo(todo, callback) {
   chrome.storage.local.get(
     {
       todos: [],
@@ -1826,8 +2639,11 @@ function saveTodo(todo) {
             showNotification(
               "Storage error: " + chrome.runtime.lastError.message
             );
+            if (callback) callback(false);
             return;
           }
+          if (viewMode === 0) refreshTodoList();
+          if (callback) callback(true);
         }
       );
     }
@@ -2583,6 +3399,8 @@ function showProjectContextMenu(e, todo) {
             chrome.storage.sync.set({
               currentProjectId: currentProjectId,
             });
+
+            if (isBoardView) renderBoard();
 
             removeContextMenu();
           });
