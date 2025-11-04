@@ -1052,6 +1052,7 @@ let lastCreatedTodoId = null;
 // Board statuses
 const BOARD_STATUSES = ["backlog", "on_deck", "in_progress", "done"];
 let isBoardView = false;
+let boardRenderVersion = 0; // prevent overlapping renders from duplicating UI
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 // Migrate existing todos to include new fields if missing (status, dueDate, lastEdited)
@@ -1329,6 +1330,7 @@ function renderBoard() {
   const board = document.getElementById("boardContainer");
   if (!board) return;
   board.innerHTML = "";
+  const renderToken = ++boardRenderVersion;
 
   // Load hidden status preferences and then build columns + cards
   chrome.storage.local.get(
@@ -1337,6 +1339,8 @@ function renderBoard() {
       todos: [],
     },
     function (items) {
+      // Abort outdated renders
+      if (renderToken !== boardRenderVersion) return;
       const hidden = items.boardHiddenStatuses || {};
 
       const columnsWrap = document.createElement("div");
@@ -1398,6 +1402,7 @@ function renderBoard() {
         }
         function handleDrop(e) {
           e.preventDefault();
+          e.stopPropagation();
           const todoId =
             (e.dataTransfer && e.dataTransfer.getData("text/plain")) || "";
           const targetStatus = this.dataset.status || status;
@@ -1424,6 +1429,8 @@ function renderBoard() {
         columnsWrap.appendChild(col);
       });
 
+      // Ensure this render is still the latest before appending
+      if (renderToken !== boardRenderVersion) return;
       board.appendChild(columnsWrap);
 
       // Populate cards
@@ -1433,6 +1440,8 @@ function renderBoard() {
         if (currentProjectId === "none") return !t.projectId;
         return t.projectId === currentProjectId;
       });
+      // Only populate if still latest render
+      if (renderToken !== boardRenderVersion) return;
       filtered.forEach((t) => addCardToBoard(t));
     }
   );
