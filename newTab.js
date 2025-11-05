@@ -373,6 +373,7 @@ document.addEventListener("DOMContentLoaded", function () {
   migrateTodoStatusesIfNeeded(function () {
     createBoardToggleAndContainer();
     initShortcutsAndHelp();
+    initDailyQuestionsUI();
   });
 });
 
@@ -1832,6 +1833,170 @@ function daysUntil(ms) {
     (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
   );
   return diff;
+}
+
+// Daily Questions
+function todayKey() {
+  return toInputDate(Date.now());
+}
+
+function initDailyQuestionsUI() {
+  const btn = document.getElementById("dailyQuestionsBtn");
+  if (btn) btn.addEventListener("click", openDailyQuestionsModal);
+  refreshDailyStatusUI();
+}
+
+function refreshDailyStatusUI() {
+  const statusEl = document.getElementById("dailyCheck");
+  if (!statusEl) return;
+  chrome.storage.sync.get({ dailyQuestions: [] }, function (cfg) {
+    const questions = cfg.dailyQuestions || [];
+    chrome.storage.local.get({ dailyAnswersByDate: {} }, function (data) {
+      const key = todayKey();
+      const answers = (data.dailyAnswersByDate || {})[key] || [];
+      const complete =
+        questions.length > 0 &&
+        answers.length >= questions.length &&
+        answers.every((a) => a && a.answer !== undefined);
+      statusEl.style.display = complete ? "inline" : "none";
+    });
+  });
+}
+
+function openDailyQuestionsModal() {
+  // Remove any existing modal
+  const existing = document.getElementById("dailyQuestionsModal");
+  if (existing) existing.remove();
+
+  chrome.storage.sync.get({ dailyQuestions: [] }, function (cfg) {
+    const questions = cfg.dailyQuestions || [];
+    if (questions.length === 0) {
+      if (confirm("No daily questions set. Open options to add questions?")) {
+        if (chrome && chrome.runtime && chrome.runtime.openOptionsPage) {
+          chrome.runtime.openOptionsPage();
+        }
+      }
+      return;
+    }
+
+    chrome.storage.local.get({ dailyAnswersByDate: {} }, function (data) {
+      const key = todayKey();
+      const prev = (data.dailyAnswersByDate || {})[key] || [];
+
+      const overlay = document.createElement("div");
+      overlay.id = "dailyQuestionsModal";
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.right = "0";
+      overlay.style.bottom = "0";
+      overlay.style.background = "rgba(0,0,0,0.6)";
+      overlay.style.zIndex = "2300";
+      overlay.style.display = "flex";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+
+      const panel = document.createElement("div");
+      panel.style.background = "#fff";
+      panel.style.color = "#333";
+      panel.style.borderRadius = "8px";
+      panel.style.boxShadow = "0 10px 24px rgba(0,0,0,0.3)";
+      panel.style.width = "min(760px, 90vw)";
+      panel.style.maxHeight = "80vh";
+      panel.style.overflow = "auto";
+      panel.style.padding = "16px";
+
+      const heading = document.createElement("div");
+      heading.textContent = "Daily Questions";
+      heading.style.fontWeight = "bold";
+      heading.style.fontSize = "16px";
+      heading.style.marginBottom = "10px";
+      panel.appendChild(heading);
+
+      const form = document.createElement("div");
+      questions.forEach((q, idx) => {
+        const wrap = document.createElement("div");
+        wrap.style.marginBottom = "10px";
+        const label = document.createElement("div");
+        label.textContent = q;
+        label.style.fontSize = "13px";
+        label.style.marginBottom = "4px";
+        const input = document.createElement("textarea");
+        input.style.width = "100%";
+        input.style.minHeight = "80px";
+        input.style.border = "1px solid #ccc";
+        input.style.borderRadius = "4px";
+        input.style.padding = "8px";
+        const prevAns = prev.find((a) => a && a.index === idx);
+        if (prevAns) input.value = prevAns.answer;
+        input.dataset.index = idx;
+        wrap.appendChild(label);
+        wrap.appendChild(input);
+        form.appendChild(wrap);
+      });
+      panel.appendChild(form);
+
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.justifyContent = "flex-end";
+      actions.style.gap = "8px";
+      actions.style.marginTop = "12px";
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.style.padding = "8px 12px";
+      cancelBtn.style.border = "none";
+      cancelBtn.style.borderRadius = "4px";
+      cancelBtn.style.cursor = "pointer";
+      cancelBtn.addEventListener("click", function () {
+        overlay.remove();
+      });
+
+      const saveBtn = document.createElement("button");
+      saveBtn.textContent = "Save";
+      saveBtn.style.background = "#28a745";
+      saveBtn.style.color = "#fff";
+      saveBtn.style.padding = "8px 12px";
+      saveBtn.style.border = "none";
+      saveBtn.style.borderRadius = "4px";
+      saveBtn.style.cursor = "pointer";
+      saveBtn.addEventListener("click", function () {
+        const inputs = Array.from(panel.querySelectorAll("textarea"));
+        const answers = inputs.map((el) => ({
+          index: Number(el.dataset.index),
+          answer: el.value || "",
+        }));
+        chrome.storage.local.get({ dailyAnswersByDate: {} }, function (st) {
+          const map = st.dailyAnswersByDate || {};
+          map[key] = answers;
+          chrome.storage.local.set({ dailyAnswersByDate: map }, function () {
+            overlay.remove();
+            refreshDailyStatusUI();
+          });
+        });
+      });
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(saveBtn);
+      panel.appendChild(actions);
+
+      overlay.appendChild(panel);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) overlay.remove();
+      });
+      document.addEventListener(
+        "keydown",
+        function onEsc(e) {
+          if (e.key === "Escape") {
+            overlay.remove();
+            document.removeEventListener("keydown", onEsc);
+          }
+        },
+        { once: true }
+      );
+      document.body.appendChild(overlay);
+    });
+  });
 }
 
 // TODO Feature functions

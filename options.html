@@ -143,6 +143,26 @@
       </div>
 
       <div class="option-group">
+        <h2>Daily Questions</h2>
+        <p>Manage the list of questions you want to answer each day.</p>
+        <div id="questionsList"></div>
+        <div style="margin-top:10px">
+          <input id="newQuestionInput" type="text" placeholder="Add a new question..." />
+          <button id="addQuestionBtn">Add Question</button>
+          <button id="saveQuestionsBtn" class="secondary">Save Questions</button>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <h2>Past Answers</h2>
+        <div>
+          <label for="answersDateSelect">Select a date</label>
+          <select id="answersDateSelect" style="padding:8px;border:1px solid #ddd;border-radius:4px;"></select>
+        </div>
+        <div id="answersViewer" style="margin-top:10px"></div>
+      </div>
+
+      <div class="option-group">
         <h2>Weather Settings</h2>
         <label for="zipcode">Your Zipcode (for weather information)</label>
         <input type="text" id="zipcode" placeholder="Enter your zipcode" />
