@@ -196,11 +196,19 @@ function initDailyQuestionsOptions() {
   if (saveBtn)
     saveBtn.addEventListener("click", function () {
       const rows = document.querySelectorAll(".question-row input[type=text]");
-      const questions = Array.from(rows)
+      let questions = Array.from(rows)
         .map((el) => (el.value || "").trim())
         .filter((s) => s.length > 0);
+      // Also include unsaved text in the add box, so users can save directly
+      const addInput = document.getElementById("newQuestionInput");
+      const pending = (addInput && addInput.value && addInput.value.trim()) || "";
+      if (pending.length > 0) {
+        questions.push(pending);
+        addInput.value = "";
+      }
       chrome.storage.sync.set({ dailyQuestions: questions }, function () {
         showStatus("Daily questions saved");
+        renderQuestions(questions);
         // Refresh date list for past answers viewer
         loadPastAnswersDates();
       });
