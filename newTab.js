@@ -374,6 +374,7 @@ document.addEventListener("DOMContentLoaded", function () {
     createBoardToggleAndContainer();
     initShortcutsAndHelp();
     initDailyQuestionsUI();
+    initGoalsUI();
   });
 });
 
@@ -1056,7 +1057,7 @@ let isBoardView = false;
 let boardRenderVersion = 0; // prevent overlapping renders from duplicating UI
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
-// Migrate existing todos to include new fields if missing (status, dueDate, lastEdited)
+// Migrate existing todos to include new fields if missing (status, dueDate, lastEdited, lastStatusChange)
 function migrateTodoStatusesIfNeeded(callback) {
   chrome.storage.local.get(
     {
@@ -1078,6 +1079,10 @@ function migrateTodoStatusesIfNeeded(callback) {
         if (!next.lastEdited) {
           updated = true;
           next.lastEdited = Date.now();
+        }
+        if (!next.lastStatusChange) {
+          updated = true;
+          next.lastStatusChange = Date.parse("2025-11-05") || Date.now();
         }
         if (!next.size) {
           updated = true;
@@ -1502,6 +1507,34 @@ function addCardToBoard(todo) {
     } overdue`;
   card.appendChild(due);
 
+  // Days in current status dots (Jira-like):
+  // days 1-4 => show that many outlined dots; days 5-8 => 1-4 filled dots; never more than 4
+  const daysInStatus = Math.max(
+    0,
+    Math.round(
+      (Date.now() - (todo.lastStatusChange || Date.now())) /
+        (24 * 60 * 60 * 1000)
+    )
+  );
+  const dotsWrap = document.createElement("div");
+  dotsWrap.style.display = "flex";
+  dotsWrap.style.gap = "3px";
+  dotsWrap.style.marginTop = "4px";
+  dotsWrap.title = `${daysInStatus} day(s) in status`;
+  const filledPhase = daysInStatus > 4;
+  const dotCount = Math.min(4, filledPhase ? daysInStatus - 4 : daysInStatus);
+  for (let i = 0; i < dotCount; i++) {
+    const circle = document.createElement("span");
+    circle.style.display = "inline-block";
+    circle.style.width = "8px";
+    circle.style.height = "8px";
+    circle.style.borderRadius = "50%";
+    circle.style.border = "1px solid #dc3545";
+    circle.style.background = filledPhase ? "#dc3545" : "transparent";
+    dotsWrap.appendChild(circle);
+  }
+  if (dotCount > 0) card.appendChild(dotsWrap);
+
   // Note: Hide descriptions on board cards; they are visible in the editor modal
 
   card.addEventListener("dragstart", function (e) {
@@ -1535,7 +1568,11 @@ function changeTodoStatus(todoId, newStatus) {
       const todos = items.todos || [];
       const idx = todos.findIndex((t) => t.id === todoId);
       if (idx === -1) return;
-      todos[idx] = { ...todos[idx], status: newStatus };
+      todos[idx] = {
+        ...todos[idx],
+        status: newStatus,
+        lastStatusChange: Date.now(),
+      };
       chrome.storage.local.set({ todos }, function () {
         if (isBoardView) renderBoard();
       });
@@ -1666,9 +1703,21 @@ function openBoardCardEditor(todoId) {
     projectWrap.appendChild(projectLbl);
     projectWrap.appendChild(projectSelect);
 
+    // Last status change (manual override)
+    const lscWrap = document.createElement("div");
+    const lscLbl = document.createElement("div");
+    lscLbl.textContent = "Status changed";
+    lscLbl.style.fontSize = "12px";
+    const lscInput = document.createElement("input");
+    lscInput.type = "date";
+    lscInput.value = toInputDate(todo.lastStatusChange || Date.now());
+    lscWrap.appendChild(lscLbl);
+    lscWrap.appendChild(lscInput);
+
     datesRow.appendChild(dueWrap);
     datesRow.appendChild(editedWrap);
     datesRow.appendChild(projectWrap);
+    datesRow.appendChild(lscWrap);
     // Status select
     const statusWrap = document.createElement("div");
     const statusLbl = document.createElement("div");
@@ -1734,6 +1783,8 @@ function openBoardCardEditor(todoId) {
       const newDue =
         fromInputDate(dueInput.value) || todo.dueDate || Date.now();
       const newEdited = fromInputDate(editedInput.value) || Date.now();
+      const newLastStatusChange =
+        fromInputDate(lscInput.value) || todo.lastStatusChange || Date.now();
       const newProjectId =
         projectSelect.value === "none" ? null : projectSelect.value;
       const newStatus = statusSelect.value || todo.status || "backlog";
@@ -1748,6 +1799,7 @@ function openBoardCardEditor(todoId) {
           description: newDesc,
           dueDate: newDue,
           lastEdited: newEdited,
+          lastStatusChange: newLastStatusChange,
           projectId: newProjectId,
           status: newStatus,
           size: newSize,
@@ -1818,8 +1870,15 @@ function toInputDate(ms) {
 }
 function fromInputDate(s) {
   if (!s) return null;
-  const t = Date.parse(s);
-  return isNaN(t) ? null : t;
+  // Parse YYYY-MM-DD as a LOCAL date at midnight to avoid UTC shift
+  const parts = s.split("-");
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return null;
+  const dt = new Date(y, m - 1, d, 0, 0, 0, 0); // local midnight
+  return dt.getTime();
 }
 
 // Compute days until a timestamp (negative when overdue)
@@ -1996,6 +2055,107 @@ function openDailyQuestionsModal() {
       );
       document.body.appendChild(overlay);
     });
+  });
+}
+
+// Goals viewer modal
+function initGoalsUI() {
+  const btn = document.getElementById("goalsBtn");
+  if (btn) btn.addEventListener("click", openGoalsModal);
+}
+
+function openGoalsModal() {
+  const existing = document.getElementById("goalsModal");
+  if (existing) existing.remove();
+  chrome.storage.sync.get({ goals: [] }, function (cfg) {
+    const goals = cfg.goals || [];
+    const overlay = document.createElement("div");
+    overlay.id = "goalsModal";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.right = "0";
+    overlay.style.bottom = "0";
+    overlay.style.background = "rgba(0,0,0,0.6)";
+    overlay.style.zIndex = "2300";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+
+    const panel = document.createElement("div");
+    panel.style.background = "#fff";
+    panel.style.color = "#333";
+    panel.style.borderRadius = "10px";
+    panel.style.boxShadow = "0 12px 32px rgba(0,0,0,0.35)";
+    panel.style.width = "min(720px, 90vw)";
+    panel.style.maxHeight = "80vh";
+    panel.style.overflow = "auto";
+    panel.style.padding = "16px";
+
+    const title = document.createElement("div");
+    title.textContent = "Goals / Objectives";
+    title.style.fontWeight = "bold";
+    title.style.fontSize = "18px";
+    title.style.marginBottom = "10px";
+    panel.appendChild(title);
+
+    if (goals.length === 0) {
+      const empty = document.createElement("div");
+      empty.textContent = "No goals set. Use Options to add some.";
+      empty.style.color = "#666";
+      panel.appendChild(empty);
+    } else {
+      const ul = document.createElement("ul");
+      ul.style.listStyle = "none";
+      ul.style.padding = "0";
+      ul.style.margin = "0";
+      ul.style.display = "flex";
+      ul.style.flexDirection = "column";
+      ul.style.gap = "8px";
+      goals.forEach((g) => {
+        const li = document.createElement("li");
+        li.style.background = "#f8f9fa";
+        li.style.border = "1px solid #eee";
+        li.style.borderRadius = "8px";
+        li.style.padding = "10px";
+        li.textContent = g;
+        ul.appendChild(li);
+      });
+      panel.appendChild(ul);
+    }
+
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.justifyContent = "flex-end";
+    row.style.marginTop = "12px";
+    const close = document.createElement("button");
+    close.textContent = "Close";
+    close.style.padding = "8px 12px";
+    close.style.border = "none";
+    close.style.borderRadius = "4px";
+    close.style.cursor = "pointer";
+    close.addEventListener("click", function () {
+      overlay.remove();
+    });
+    row.appendChild(close);
+    panel.appendChild(row);
+
+    overlay.appendChild(panel);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.addEventListener(
+      "keydown",
+      function onEsc(e) {
+        if (e.key === "Escape") {
+          overlay.remove();
+          document.removeEventListener("keydown", onEsc);
+        }
+      },
+      { once: true }
+    );
+
+    document.body.appendChild(overlay);
   });
 }
 
@@ -2475,6 +2635,7 @@ function createNewTodo() {
     status: "backlog",
     dueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
     lastEdited: Date.now(),
+    lastStatusChange: Date.now(),
     size: "M",
   };
 

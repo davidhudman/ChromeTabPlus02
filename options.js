@@ -15,6 +15,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Daily questions UI
   initDailyQuestionsOptions();
+
+  // Goals UI
+  initGoalsOptions();
 });
 
 // Handle the selection of background images
@@ -305,6 +308,82 @@ function renderAnswersForDate(dateKey) {
       viewer.innerHTML = html || "No answers for this date.";
     });
   });
+}
+
+// ================= Goals Options =================
+function initGoalsOptions() {
+  chrome.storage.sync.get({ goals: [] }, function (cfg) {
+    renderGoals(cfg.goals || []);
+  });
+
+  const addBtn = document.getElementById("addGoalBtn");
+  if (addBtn)
+    addBtn.addEventListener("click", function () {
+      const inp = document.getElementById("newGoalInput");
+      const value = (inp.value || "").trim();
+      if (!value) return;
+      const list = document.getElementById("goalsList");
+      list.appendChild(createGoalRow(value));
+      inp.value = "";
+    });
+
+  const saveBtn = document.getElementById("saveGoalsBtn");
+  if (saveBtn)
+    saveBtn.addEventListener("click", function () {
+      const goals = collectGoalsFromRows(true);
+      chrome.storage.sync.set({ goals: goals }, function () {
+        showStatus("Goals saved");
+        renderGoals(goals);
+      });
+    });
+}
+
+function createGoalRow(text) {
+  const row = document.createElement("div");
+  row.className = "goal-row";
+  row.style.display = "flex";
+  row.style.gap = "6px";
+  row.style.marginBottom = "6px";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = text || "";
+  input.style.flex = "1";
+  const del = document.createElement("button");
+  del.textContent = "Delete";
+  del.className = "secondary";
+  del.addEventListener("click", function () {
+    row.remove();
+    const updated = collectGoalsFromRows(false);
+    chrome.storage.sync.set({ goals: updated }, function () {
+      showStatus("Goal deleted");
+    });
+  });
+  row.appendChild(input);
+  row.appendChild(del);
+  return row;
+}
+
+function renderGoals(goals) {
+  const list = document.getElementById("goalsList");
+  if (!list) return;
+  list.innerHTML = "";
+  (goals || []).forEach((g) => list.appendChild(createGoalRow(g)));
+}
+
+function collectGoalsFromRows(includeNewBox) {
+  const rows = document.querySelectorAll(".goal-row input[type=text]");
+  let goals = Array.from(rows)
+    .map((el) => (el.value || "").trim())
+    .filter((s) => s.length > 0);
+  if (includeNewBox) {
+    const addInput = document.getElementById("newGoalInput");
+    const pending = (addInput && addInput.value && addInput.value.trim()) || "";
+    if (pending.length > 0) {
+      goals.push(pending);
+      addInput.value = "";
+    }
+  }
+  return goals;
 }
 
 // Helper function to display image previews
