@@ -195,10 +195,7 @@ function initDailyQuestionsOptions() {
   const saveBtn = document.getElementById("saveQuestionsBtn");
   if (saveBtn)
     saveBtn.addEventListener("click", function () {
-      const rows = document.querySelectorAll(".question-row input[type=text]");
-      let questions = Array.from(rows)
-        .map((el) => (el.value || "").trim())
-        .filter((s) => s.length > 0);
+      let questions = collectQuestionsFromRows();
       // Also include unsaved text in the add box, so users can save directly
       const addInput = document.getElementById("newQuestionInput");
       const pending = (addInput && addInput.value && addInput.value.trim()) || "";
@@ -238,6 +235,10 @@ function createQuestionRow(text) {
   del.className = "secondary";
   del.addEventListener("click", function () {
     row.remove();
+    const updated = collectQuestionsFromRows();
+    chrome.storage.sync.set({ dailyQuestions: updated }, function () {
+      showStatus("Question deleted");
+    });
   });
   row.appendChild(input);
   row.appendChild(del);
@@ -249,6 +250,13 @@ function renderQuestions(questions) {
   if (!list) return;
   list.innerHTML = "";
   (questions || []).forEach((q) => list.appendChild(createQuestionRow(q)));
+}
+
+function collectQuestionsFromRows() {
+  const rows = document.querySelectorAll(".question-row input[type=text]");
+  return Array.from(rows)
+    .map((el) => (el.value || "").trim())
+    .filter((s) => s.length > 0);
 }
 
 function loadPastAnswersDates() {
