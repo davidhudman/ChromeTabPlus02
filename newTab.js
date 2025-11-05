@@ -375,6 +375,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initShortcutsAndHelp();
     initDailyQuestionsUI();
     initGoalsUI();
+    initDatesToggle();
   });
 });
 
@@ -1055,6 +1056,7 @@ let lastCreatedTodoId = null;
 const BOARD_STATUSES = ["backlog", "on_deck", "in_progress", "done"];
 let isBoardView = false;
 let boardRenderVersion = 0; // prevent overlapping renders from duplicating UI
+let showDates = true;
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 // Migrate existing todos to include new fields if missing (status, dueDate, lastEdited, lastStatusChange)
@@ -1492,48 +1494,50 @@ function addCardToBoard(todo) {
 
   card.appendChild(headerRow);
 
-  // Due indicator
-  const due = document.createElement("div");
-  due.style.fontSize = "11px";
-  due.style.marginTop = "2px";
-  due.style.color = "#555";
-  const days = daysUntil(todo.dueDate);
-  if (days === 0) due.textContent = "due today";
-  else if (days > 0)
-    due.textContent = `due in ${days} day${days === 1 ? "" : "s"}`;
-  else
-    due.textContent = `${Math.abs(days)} day${
-      Math.abs(days) === 1 ? "" : "s"
-    } overdue`;
-  card.appendChild(due);
+  if (showDates) {
+    // Due indicator
+    const due = document.createElement("div");
+    due.style.fontSize = "11px";
+    due.style.marginTop = "2px";
+    due.style.color = "#555";
+    const days = daysUntil(todo.dueDate);
+    if (days === 0) due.textContent = "due today";
+    else if (days > 0)
+      due.textContent = `due in ${days} day${days === 1 ? "" : "s"}`;
+    else
+      due.textContent = `${Math.abs(days)} day${
+        Math.abs(days) === 1 ? "" : "s"
+      } overdue`;
+    card.appendChild(due);
 
-  // Days in current status dots (Jira-like):
-  // days 1-4 => show that many outlined dots; days 5-8 => 1-4 filled dots; never more than 4
-  const daysInStatus = Math.max(
-    0,
-    Math.round(
-      (Date.now() - (todo.lastStatusChange || Date.now())) /
-        (24 * 60 * 60 * 1000)
-    )
-  );
-  const dotsWrap = document.createElement("div");
-  dotsWrap.style.display = "flex";
-  dotsWrap.style.gap = "3px";
-  dotsWrap.style.marginTop = "4px";
-  dotsWrap.title = `${daysInStatus} day(s) in status`;
-  const filledPhase = daysInStatus > 4;
-  const dotCount = Math.min(4, filledPhase ? daysInStatus - 4 : daysInStatus);
-  for (let i = 0; i < dotCount; i++) {
-    const circle = document.createElement("span");
-    circle.style.display = "inline-block";
-    circle.style.width = "8px";
-    circle.style.height = "8px";
-    circle.style.borderRadius = "50%";
-    circle.style.border = "1px solid #dc3545";
-    circle.style.background = filledPhase ? "#dc3545" : "transparent";
-    dotsWrap.appendChild(circle);
+    // Days in current status dots (Jira-like):
+    // days 1-4 => show that many outlined dots; days 5-8 => 1-4 filled dots; never more than 4
+    const daysInStatus = Math.max(
+      0,
+      Math.round(
+        (Date.now() - (todo.lastStatusChange || Date.now())) /
+          (24 * 60 * 60 * 1000)
+      )
+    );
+    const dotsWrap = document.createElement("div");
+    dotsWrap.style.display = "flex";
+    dotsWrap.style.gap = "3px";
+    dotsWrap.style.marginTop = "4px";
+    dotsWrap.title = `${daysInStatus} day(s) in status`;
+    const filledPhase = daysInStatus > 4;
+    const dotCount = Math.min(4, filledPhase ? daysInStatus - 4 : daysInStatus);
+    for (let i = 0; i < dotCount; i++) {
+      const circle = document.createElement("span");
+      circle.style.display = "inline-block";
+      circle.style.width = "8px";
+      circle.style.height = "8px";
+      circle.style.borderRadius = "50%";
+      circle.style.border = "1px solid #dc3545";
+      circle.style.background = filledPhase ? "#dc3545" : "transparent";
+      dotsWrap.appendChild(circle);
+    }
+    if (dotCount > 0) card.appendChild(dotsWrap);
   }
-  if (dotCount > 0) card.appendChild(dotsWrap);
 
   // Note: Hide descriptions on board cards; they are visible in the editor modal
 
@@ -1752,6 +1756,12 @@ function openBoardCardEditor(todoId) {
     sizeWrap.appendChild(sizeSelect);
     datesRow.appendChild(sizeWrap);
     panel.appendChild(datesRow);
+
+    // Respect global dates visibility setting
+    if (!showDates) {
+      dueWrap.style.display = "none";
+      lscWrap.style.display = "none";
+    }
 
     const actions = document.createElement("div");
     actions.style.display = "flex";
@@ -2156,6 +2166,26 @@ function openGoalsModal() {
     );
 
     document.body.appendChild(overlay);
+  });
+}
+
+// Dates visibility toggle
+function initDatesToggle() {
+  const btn = document.getElementById("toggleDatesBtn");
+  if (!btn) return;
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.sync.get({ showDates: true }, function (cfg) {
+      showDates = cfg.showDates !== false;
+      btn.textContent = showDates ? "Dates: On" : "Dates: Off";
+    });
+  }
+  btn.addEventListener("click", function () {
+    showDates = !showDates;
+    btn.textContent = showDates ? "Dates: On" : "Dates: Off";
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.sync.set({ showDates: showDates });
+    }
+    if (isBoardView) renderBoard();
   });
 }
 
