@@ -554,6 +554,7 @@ document.addEventListener("DOMContentLoaded", function () {
   getCurrentWeatherData();
   // getForecastWeatherData();
   getCryptoPrices();
+  getBchRank();
   getFxPrices();
   // getStockPrices();
   // getNews();
@@ -604,15 +605,15 @@ function getCryptoPrices() {
       return;
     }
 
-    console.log(`obj.BTC: ${JSON.stringify(obj["BTC"])}`);
+    // console.log(`obj.BTC: ${JSON.stringify(obj["BTC"])}`);
 
     let coinString = "";
 
     function parseCoinPrice(coinName) {
       try {
-        coinString +=
-          coinName + ": " + JSON.stringify(obj[coinName].USD) + "<br>";
-        cryptos[coinName] = obj[coinName].USD;
+        let price = obj.RAW[coinName].USD.PRICE;
+        coinString += coinName + ": " + price + "<br>";
+        cryptos[coinName] = price;
       } catch (e) {
         coinString += "Failed to load " + coinName + "<br>";
       }
@@ -627,6 +628,24 @@ function getCryptoPrices() {
     getBtcTransxPrices();
 
     let btcToBch = cryptos["BCH"] / cryptos["BTC"];
+    
+    // Market Cap calculations
+    // Use CIRCULATINGSUPPLYMKTCAP to get the market cap based on circulating supply, not max supply
+    let adaMktCap = obj.RAW["ADA"].USD.CIRCULATINGSUPPLYMKTCAP; 
+    let bchMktCap = obj.RAW["BCH"].USD.CIRCULATINGSUPPLYMKTCAP;
+    let mktCapDiffPct = ((adaMktCap - bchMktCap) / bchMktCap) * 100;
+    
+    // Formatting market caps (e.g. 12.5 B)
+    function formatMktCap(value) {
+        if (value >= 1e9) {
+            return (value / 1e9).toFixed(2) + " B";
+        }
+        if (value >= 1e6) {
+            return (value / 1e6).toFixed(2) + " M";
+        }
+        return value.toFixed(2);
+    }
+
     const btcEl = document.getElementById("BTC");
     if (btcEl) {
       btcEl.innerHTML =
@@ -635,14 +654,71 @@ function getCryptoPrices() {
         "<br />" +
         "BTC to BCH: " +
         btcToBch.toFixed(8) +
+        "<br />" + 
+        "BCH vs 2024-01-01: " + ((((btcToBch - 0.006075) / 0.006075) * 100) > 0 ? "+" : "") + (((btcToBch - 0.006075) / 0.006075) * 100).toFixed(2) + "%" +
+        "<br />" +
+        "BCH vs 2025-01-01: " + ((((btcToBch - 0.004647) / 0.004647) * 100) > 0 ? "+" : "") + (((btcToBch - 0.004647) / 0.004647) * 100).toFixed(2) + "%" +
+        "<br /><br />" +
+        "ADA Mkt Cap: $" + formatMktCap(adaMktCap) +
+        "<br />" +
+        "BCH Mkt Cap: $" + formatMktCap(bchMktCap) +
+        "<br />" +
+        "ADA vs BCH Mkt Cap Diff: " + mktCapDiffPct.toFixed(2) + "%" +
         "</div>";
     }
   };
 
-  // request data from a coin exchange
+  // request data from a coin exchange (using pricemultifull for metadata)
   request.open(
     "GET",
-    "https://min-api.cryptocompare.com/data/pricemulti?fsyms=DOGE,XMR,ZEC,BCH,ETH,BTC&e=Bitfinex&tsyms=USD",
+    "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=DOGE,XMR,ZEC,BCH,ETH,BTC,ADA&tsyms=USD",
+    true
+  );
+  request.send();
+}
+
+function getBchRank() {
+  var request = new XMLHttpRequest();
+  request.onreadystatechange = function () {
+    if (request.readyState !== 4) return;
+    if (request.status !== 200) {
+      console.error(`getBchRank: HTTP ${request.status}`);
+      return;
+    }
+
+    let obj;
+    try {
+      obj = JSON.parse(request.responseText);
+    } catch (e) {
+      console.error("getBchRank: failed to parse JSON", e);
+      return;
+    }
+    
+    if (obj && obj.Data) {
+        // Find BCH in the list
+        // The list is ordered by Market Cap descending (default for top/mktcapfull)
+        let rank = -1;
+        for (let i = 0; i < obj.Data.length; i++) {
+            if (obj.Data[i].CoinInfo.Name === "BCH") {
+                rank = i + 1; // 1-based rank
+                break;
+            }
+        }
+        
+        const bchRankEl = document.getElementById("BCHRank");
+        if (bchRankEl) {
+            if (rank > 0) {
+                bchRankEl.innerHTML = "<div>BCH Rank: " + rank + "</div>";
+            } else {
+                bchRankEl.innerHTML = "<div>BCH Rank: > 100</div>";
+            }
+        }
+    }
+  };
+
+  request.open(
+    "GET",
+    "https://min-api.cryptocompare.com/data/top/mktcapfull?limit=100&tsym=USD",
     true
   );
   request.send();
