@@ -612,7 +612,14 @@ function getCryptoPrices() {
     function parseCoinPrice(coinName) {
       try {
         let price = obj.RAW[coinName].USD.PRICE;
-        coinString += coinName + ": " + price + "<br>";
+        // Format to whole number for BTC/ETH, 2 decimal places for others
+        let displayPrice;
+        if (coinName === "BTC" || coinName === "ETH") {
+            displayPrice = Math.round(price);
+        } else {
+            displayPrice = price.toFixed(2);
+        }
+        coinString += coinName + ": " + displayPrice + "<br>";
         cryptos[coinName] = price;
       } catch (e) {
         coinString += "Failed to load " + coinName + "<br>";
