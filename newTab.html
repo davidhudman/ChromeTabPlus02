@@ -1,14 +1,6 @@
 <html>
   <head>
-    <title>New Tab - ChromeTabPlus</title>
-    <link
-      rel="stylesheet"
-      href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css"
-    />
-    <link
-      rel="stylesheet"
-      href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-    />
+    <title>New Tab - Chrome Tab Plus</title>
     <!-- Local jQuery scripts (MV3 compliant) -->
     <script src="jquery.min.js"></script>
     <script src="jquery-ui.min.js"></script>
@@ -21,7 +13,9 @@
       body.zen-mode #countdownContainer,
       body.zen-mode #timerToggleButton,
       body.zen-mode #backgroundTip,
-      body.zen-mode #projectControls {
+      body.zen-mode #projectControls,
+      body.zen-mode #bgNavButtons,
+      body.zen-mode #zenModeButton {
         display: none !important;
       }
     </style>
@@ -39,6 +33,49 @@
       height: 900px;
     "
   >
+    <!-- Background Navigation Buttons -->
+    <div
+      id="bgNavButtons"
+      style="
+        position: absolute;
+        top: 20px;
+        right: 420px;
+        z-index: 1000;
+        display: flex;
+        gap: 5px;
+      "
+    >
+      <button
+        id="prevBgBtn"
+        style="
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        "
+        title="Previous background"
+      >
+        &lt;
+      </button>
+      <button
+        id="nextBgBtn"
+        style="
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        "
+        title="Next background"
+      >
+        &gt;
+      </button>
+    </div>
     <!-- Zen Mode Toggle (always visible) -->
     <div
       id="zenModeButton"

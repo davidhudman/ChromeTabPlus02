@@ -6,10 +6,21 @@ var displayLabels = true;
 var countStartValue = 1;
 var count = countStartValue;
 var numImages = 32; // 29;
-var googlePhotosReel = [
-  "https://lh3.googleusercontent.com/okjyywJfSGdcnq-rTpq3dJ1Rq9_QwMY-xqNrG5T-srenDNd5pKpyhik-1qulFSgOHnJASLgcJ3RYfbsXfzmIGwkwh1XEtGtR2OXW0ZveAduEBvuoVO4_2WXu6Xci5BrknB4381kxvCBgJiSdHOenRTct02BqNaAXgSL8-4RlRuYkCLlmEJUdwmiyyTJMUtsQNlDC82Q60wlwxiYvHuS-Dv3Xj5KKhdy5AXoTBz7w9c8s_-1BgYLbfc6NUqh65eeDF-PPtecWy_1B5xK1QdMG6hlT6QSUYLi-0jrk6pfTpxk5HYlXAdGwMt4g-46E1p1_oljMt4Mp5qvVNRcPDXWYQFHnqUjGzFHGeYmwvzmQy7T2jTmmnGRHAg16vbrLOhK9Zb_htEMfa11yE8IXwv08sdsZogzHqxWqGbcZdUhetOprUc79FhIw1f_tOJEI5HGUvz2hZ19UYaK11llyOtS1-oH7APGEDRIWzDZ_6Ze2Gr8sFw9FFK1HxbzEGxlOjK5a__13jGxAPPVQJu-04aigFoRYJrUJjgCEeGhaEkUiyeB_Q_2LhsxFq4qezKYNEk0G3MtPez5VGaxEFz4HA6xknGzqKwBEwvfWGbzE5WbOCLY=w1266-h949-no",
-  "https://lh3.googleusercontent.com/4tD_TkWBWp09qROMJatAbqPZLlt7X-qDY3jvM1MWKg-7iJSxYHsoEQRE2hQKAsud8FzXfirXWuMO2k6wQyglN2xYdWYaXpIt9MeJpVQgI8AJUpkOSMfY1FdihbquhAjjOGs13cioHKe3ibKXxa1P-FBfbf1gKuCGixVIx9lg34BYDy9ly4uTQ_UQMGzplL5i8OKNrVmA08bejlgTRHi33b76duzQD0hlm0KU8a3YXCxKClvABD-B6xXBeD-8zlinSsxatlvpSvjpmd24XP2k6XrD-LcLexlcsISTdGRFVxiGDvmM9f2mI2aOLTj_ydtxlu3_7apfXic2Po95Ty9OGO2BfpUokyI8RS4yyWIuI-6AgMgEPciN6_0A8iwLSvf4F2p55OWUZKG8czHKMp5NCMgBCE583nXlQAbck-9SVaTAyOwaDOn0dSA8M3mFXe1avM4tDBsGtbAIPwthSwrV80SBN-B4SMk9eV5zMQCfzN6JhJJiNk7xFMM33NUmrRM0JI_-ufKqNQwfDoXA-64lkMFvGWoUZMJsFa5MnPO5UB8twwB-4m4rF44xOmFD1dGuFVFP7FYcRzbyrPvYX-uKkV2CCiI827JbmLCjqWlyIFk=w1266-h949-no",
+
+// Bundled background images in the backgrounds/ folder (cross-platform compatible)
+var bundledBackgrounds = [
+  "backgrounds/sanfran-orange-derick.jpg",
+  "backgrounds/stars-trees-derick.jpg",
+  "backgrounds/twilight-derick.jpg",
+  "backgrounds/lake-derick.jpg",
+  "backgrounds/mountain-hike-derick.jpg",
+  "backgrounds/canyonlands-dhud.JPG",
+  "backgrounds/coastline.png"
 ];
+
+console.log("bundledBackgrounds initialized:", bundledBackgrounds);
+
+var googlePhotosReel = [];
 
 document.addEventListener("DOMContentLoaded", function () {
   // $("#helloText").click(function () {
@@ -29,13 +40,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const rect = timeEl.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const timeWidth = rect.width;
+      const clickRatio = clickX / timeWidth;
+      console.log("Clock clicked at position:", clickX, "of", timeWidth, "ratio:", clickRatio);
 
       // If click is on the right half (minutes), go backward
       if (clickX > timeWidth * 0.67) {
+        console.log("Right side clicked - going to previous image");
         previousImageInChromeStoragePhotoArray();
       }
       // If click is on the left third (hours), go forward
       else if (clickX < timeWidth * 0.33) {
+        console.log("Left side clicked - going to next image");
         nextImageInChromeStoragePhotoArray();
       }
       // If click is in the middle (colon), toggle default background
@@ -45,12 +60,13 @@ document.addEventListener("DOMContentLoaded", function () {
           {
             backgroundImages: [],
             useDefaultBackground: false,
+            bundledBgIndex: 0,
           },
           function (items) {
             console.log("Toggle background - Current state:", items);
 
             if (items.useDefaultBackground) {
-              // Currently using default background, try to switch to custom
+              // Currently using default background, try to switch to custom or bundled
               if (items.backgroundImages && items.backgroundImages.length > 0) {
                 console.log(
                   "Switching to custom background:",
@@ -68,15 +84,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 chrome.storage.local.set({
                   photoArrayCountCurrent: 0,
                   useDefaultBackground: false,
+                  photoSourceType: "encoded",
                 });
+              } else if (bundledBackgrounds && bundledBackgrounds.length > 0) {
+                // Use bundled backgrounds
+                loadBundledBackground(items.bundledBgIndex || 0);
               } else {
-                // No custom backgrounds available
-                showNotification(
-                  "No custom backgrounds available. Add images in extension options."
-                );
+                showNotification("No backgrounds available.");
               }
             } else {
-              // Currently using custom background, switch to default
+              // Currently using custom/bundled background, switch to default
               setDefaultBackground();
             }
           }
@@ -567,37 +584,77 @@ function prevImage() {
 }
 
 function nextImageInChromeStoragePhotoArray() {
+  console.log("nextImageInChromeStoragePhotoArray called");
+  console.log("bundledBackgrounds available:", bundledBackgrounds);
+
   // First check what type of photo source we're using
   chrome.storage.local.get(
     {
       photoSourceType: null,
+      bundledBgIndex: 0,
+      backgroundImages: [],
+      useDefaultBackground: false,
     },
     function (preferences) {
-      if (preferences.photoSourceType === "filesystem") {
-        // Using filesystem photos, get from sync storage
-        nextFilesystemImage();
-      } else {
-        // Using encoded images, use standard method
-        loadBackgroundImage();
+      console.log("Next image - preferences:", preferences);
+
+      // If using default background, switch to bundled
+      if (preferences.useDefaultBackground) {
+        console.log("Was using default, switching to bundled index 0");
+        loadBundledBackground(0);
+        return;
       }
+
+      // If user has custom images, use those
+      if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
+        console.log("Using custom images");
+        loadBackgroundImage();
+        return;
+      }
+
+      // Otherwise use bundled backgrounds
+      const currentIndex = preferences.bundledBgIndex || 0;
+      const nextIndex = (currentIndex + 1) % bundledBackgrounds.length;
+      console.log("Next bundled image:", currentIndex, "->", nextIndex);
+      loadBundledBackground(nextIndex);
     }
   );
 }
 
 function previousImageInChromeStoragePhotoArray() {
+  console.log("previousImageInChromeStoragePhotoArray called");
+  console.log("bundledBackgrounds available:", bundledBackgrounds);
+
   // First check what type of photo source we're using
   chrome.storage.local.get(
     {
       photoSourceType: null,
+      bundledBgIndex: 0,
+      backgroundImages: [],
+      useDefaultBackground: false,
     },
     function (preferences) {
-      if (preferences.photoSourceType === "filesystem") {
-        // Using filesystem photos, get from sync storage
-        previousFilesystemImage();
-      } else {
-        // Using encoded images, use standard method
-        previousEncodedImage();
+      console.log("Previous image - preferences:", preferences);
+
+      // If using default background, switch to bundled
+      if (preferences.useDefaultBackground) {
+        console.log("Was using default, switching to last bundled");
+        loadBundledBackground(bundledBackgrounds.length - 1);
+        return;
       }
+
+      // If user has custom images, use those
+      if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
+        console.log("Using custom images");
+        previousEncodedImage();
+        return;
+      }
+
+      // Otherwise use bundled backgrounds
+      const currentIndex = preferences.bundledBgIndex || 0;
+      const prevIndex = (currentIndex - 1 + bundledBackgrounds.length) % bundledBackgrounds.length;
+      console.log("Previous bundled image:", currentIndex, "->", prevIndex);
+      loadBundledBackground(prevIndex);
     }
   );
 }
@@ -930,6 +987,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Removing the automatic background rotation
   // setInterval(loadBackgroundImage, 300000);
+
+  // Background navigation buttons (added here to ensure DOM is ready)
+  const prevBtn = document.getElementById("prevBgBtn");
+  const nextBtn = document.getElementById("nextBgBtn");
+  console.log("Setting up nav buttons:", prevBtn, nextBtn);
+
+  if (prevBtn) {
+    prevBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      console.log("Prev button clicked");
+      previousImageInChromeStoragePhotoArray();
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      console.log("Next button clicked");
+      nextImageInChromeStoragePhotoArray();
+    });
+  }
 });
 
 // ... existing code ...
@@ -4397,14 +4474,16 @@ function migrateBackgroundImages() {
 
 // New function to check both storage types for background images
 function checkAndLoadBackgroundImage() {
-  console.log("Checking for background images in both storage types...");
+  console.log("Checking for background images...");
 
   // Check if the user has explicitly set useDefaultBackground
   chrome.storage.local.get(
     {
       useDefaultBackground: null, // null means not set yet
       photoSourceType: null, // null means not determined yet
-      currentPhotoPath: null, // path to the current photo if using filesystem
+      bundledBgIndex: 0, // index for bundled backgrounds
+      backgroundImages: [], // user-uploaded images
+      photoArrayCountCurrent: 0,
     },
     function (preferences) {
       console.log("Stored preferences:", preferences);
@@ -4416,23 +4495,66 @@ function checkAndLoadBackgroundImage() {
         return;
       }
 
-      // If user was previously using filesystem source, try that first
-      if (
-        preferences.photoSourceType === "filesystem" &&
-        preferences.currentPhotoPath
-      ) {
-        console.log(
-          "Previously using filesystem source:",
-          preferences.currentPhotoPath
-        );
-        tryLoadFromFilesystem();
+      // If user has uploaded custom images, use those
+      if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
+        console.log("Using user-uploaded images");
+        loadInitialBackgroundImage();
         return;
       }
 
-      // Try loading from all sources, starting with the most likely to succeed
-      tryLoadFromAllSources();
+      // Otherwise, use bundled backgrounds from the backgrounds/ folder
+      if (bundledBackgrounds && bundledBackgrounds.length > 0) {
+        console.log("Using bundled backgrounds from backgrounds/ folder");
+        loadBundledBackground(preferences.bundledBgIndex || 0);
+        return;
+      }
+
+      // Fallback to default solid color
+      console.log("No backgrounds available, using default");
+      setDefaultBackground();
     }
   );
+}
+
+// Load a bundled background image from the backgrounds/ folder
+function loadBundledBackground(index) {
+  console.log("loadBundledBackground called with index:", index);
+  console.log("bundledBackgrounds array:", bundledBackgrounds);
+
+  if (!bundledBackgrounds || bundledBackgrounds.length === 0) {
+    console.error("No bundled backgrounds available!");
+    setDefaultBackground();
+    return;
+  }
+
+  // Ensure index is within bounds
+  if (index < 0) index = bundledBackgrounds.length - 1;
+  index = index % bundledBackgrounds.length;
+
+  // Use chrome.runtime.getURL for cross-platform compatibility
+  const bgPath = chrome.runtime.getURL(bundledBackgrounds[index]);
+  console.log("Loading bundled background:", bgPath, "index:", index);
+
+  const bodyEl = document.getElementById("bodyid");
+  if (bodyEl) {
+    bodyEl.style.backgroundImage = `url("${bgPath}")`;
+    bodyEl.style.backgroundColor = "";
+    console.log("Background set to:", bodyEl.style.backgroundImage);
+  } else {
+    console.error("Body element not found!");
+  }
+
+  // Save the current index
+  chrome.storage.local.set({
+    bundledBgIndex: index,
+    useDefaultBackground: false,
+    photoSourceType: "bundled",
+  }, function() {
+    console.log("Saved bundledBgIndex:", index);
+    // Extract just the filename for notification
+    const filename = bundledBackgrounds[index].split('/').pop();
+    showNotification(`${index + 1}/${bundledBackgrounds.length}: ${filename}`);
+  });
 }
 
 // This is the main function that tries multiple sources in order

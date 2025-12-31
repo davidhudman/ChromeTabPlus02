@@ -1,10 +1,10 @@
 {
-  "name": "Weather Hud",
-  "version": "1.1",
-  "description": "Shows Weather Data for a zip code - high / low, current temp, sunset, etc.",
+  "name": "Chrome Tab Plus",
+  "version": "1.2",
+  "description": "nice background in chrome browser new tab, kanban board capabilities, journaling, crypto tracking",
   "manifest_version": 3,
   "action": {
-    "default_title": "Google Sheets Call",
+    "default_title": "Chrome Tab Plus",
     "default_icon": "icon.png",
     "default_popup": "popup.html"
   },
@@ -21,12 +21,17 @@
     "https://min-api.cryptocompare.com/*",
     "https://mempool.space/*",
     "wss://www.gasinfo.io/*",
-    "https://api.exchangerate.host/*",
-    "file://*/*"
+    "https://api.exchangerate.host/*"
   ],
   "chrome_url_overrides": {
     "newtab": "newTab.html"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["backgrounds/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.open-meteo.com https://api.sunrise-sunset.org https://api.zippopotam.us https://min-api.cryptocompare.com https://mempool.space wss://www.gasinfo.io https://api.exchangerate.host"
   }
