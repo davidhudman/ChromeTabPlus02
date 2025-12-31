@@ -137,6 +137,21 @@
           Settings
         </button>
         <button
+          id="addTodoBtnTopLeft"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          + Add Todo
+        </button>
+        <button
           id="toggleZenBtn"
           style="
             background: rgba(255, 255, 255, 0.1);
@@ -178,19 +193,6 @@
           "
         >
           Toggle Notes
-        </button>
-        <button
-          id="addTodoBtnTopLeft"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-          "
-        >
-          + Add Todo
         </button>
         <div style="display: flex; flex-direction: column; align-items: center; margin-left: 10px;">
           <span style="font-size: 10px; color: #ccc; margin-bottom: 2px;">Images</span>
@@ -273,6 +275,22 @@
         </div>
       </div>
       <div id="deletedTodosContainer" style="display: none">
+        <div style="margin-bottom: 10px;">
+          <button
+            id="settingsBackBtn"
+            style="
+              background: rgba(0, 0, 0, 0.7);
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+            "
+          >
+            Back
+          </button>
+        </div>
         <div
           style="
             display: flex;

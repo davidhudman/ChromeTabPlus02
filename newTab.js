@@ -250,6 +250,11 @@ document.addEventListener("DOMContentLoaded", function () {
   if (toggleTodoViewBtn)
     toggleTodoViewBtn.addEventListener("click", toggleTodoView);
 
+  // Add event listener for settings back button
+  const settingsBackBtn = document.getElementById("settingsBackBtn");
+  if (settingsBackBtn)
+    settingsBackBtn.addEventListener("click", toggleTodoView);
+
   // Add event listener for toggling TODO section visibility
   const toggleTodosVisibilityBtn = document.getElementById(
     "toggleTodosVisibilityBtn"
@@ -3741,12 +3746,10 @@ function refreshTodoList() {
 
 function toggleTodoView() {
   if (viewMode === 0) {
-    // Switch to deleted view
+    // Switch to deleted/settings view
     viewMode = 1;
     const toggleBtn = document.getElementById("toggleTodoViewBtn");
     if (toggleBtn) toggleBtn.textContent = "Back";
-    const active = document.getElementById("activeTodosContainer");
-    if (active) active.style.display = "none";
     const deleted = document.getElementById("deletedTodosContainer");
     if (deleted) deleted.style.display = "block";
     const projectControls = document.getElementById("projectControls");
@@ -3754,12 +3757,10 @@ function toggleTodoView() {
     const addBtn = document.getElementById("addTodoBtn");
     if (addBtn) addBtn.style.display = "none";
   } else {
-    // Switch to active view
+    // Switch back to board view
     viewMode = 0;
     const toggleBtn = document.getElementById("toggleTodoViewBtn");
     if (toggleBtn) toggleBtn.textContent = "Settings";
-    const active = document.getElementById("activeTodosContainer");
-    if (active) active.style.display = "block";
     const deleted = document.getElementById("deletedTodosContainer");
     if (deleted) deleted.style.display = "none";
     const projectControls = document.getElementById("projectControls");
