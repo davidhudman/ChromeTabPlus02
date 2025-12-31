@@ -241,6 +241,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const addTodoBtn = document.getElementById("addTodoBtn");
   if (addTodoBtn) addTodoBtn.addEventListener("click", createNewTodo);
 
+  // Add event listener for the top-left Add Todo button
+  const addTodoBtnTopLeft = document.getElementById("addTodoBtnTopLeft");
+  if (addTodoBtnTopLeft) addTodoBtnTopLeft.addEventListener("click", createNewTodo);
+
   // Add event listener for toggling between active and deleted TODOs
   const toggleTodoViewBtn = document.getElementById("toggleTodoViewBtn");
   if (toggleTodoViewBtn)
@@ -900,6 +904,11 @@ function fetchOpenMeteoWeather(lat, lng) {
 }
 
 function createWeatherJsonWidget(data, rawJson) {
+  // Weather JSON widget disabled - data shown in popup instead
+  // To re-enable, uncomment the code below
+  return;
+
+  /*
   // Create weather element if it doesn't exist
   if (!document.getElementById("weatherWidget")) {
     var weatherDiv = document.createElement("div");
@@ -941,6 +950,7 @@ function createWeatherJsonWidget(data, rawJson) {
       getWeatherData(items.zip);
     });
   };
+  */
 }
 
 // For the existing displayWeatherData function, modify it to handle raw JSON display:
@@ -1449,11 +1459,36 @@ function renderBoard() {
         header.style.justifyContent = "space-between";
         header.style.marginBottom = "6px";
 
+        // Left side: title + add button
+        const leftSide = document.createElement("div");
+        leftSide.style.display = "flex";
+        leftSide.style.alignItems = "center";
+        leftSide.style.gap = "6px";
+
         const title = document.createElement("div");
         title.textContent = status.replace(/_/g, " ");
         title.style.fontWeight = "bold";
         title.style.color = "#fff";
-        header.appendChild(title);
+        leftSide.appendChild(title);
+
+        // Add "+" button for this column
+        const addBtn = document.createElement("button");
+        addBtn.textContent = "+";
+        addBtn.style.background = "rgba(0,0,0,0.6)";
+        addBtn.style.color = "#fff";
+        addBtn.style.border = "none";
+        addBtn.style.padding = "2px 8px";
+        addBtn.style.borderRadius = "4px";
+        addBtn.style.fontSize = "14px";
+        addBtn.style.cursor = "pointer";
+        addBtn.style.fontWeight = "bold";
+        addBtn.title = `Add todo to ${status.replace(/_/g, " ")}`;
+        addBtn.addEventListener("click", function () {
+          createNewTodoWithStatus(status);
+        });
+        leftSide.appendChild(addBtn);
+
+        header.appendChild(leftSide);
 
         const toggleBtn = document.createElement("button");
         toggleBtn.textContent = hidden[status] ? "Show" : "Hide";
@@ -2722,6 +2757,11 @@ function saveProject(project) {
 
 // Update the createNewTodo function to include project association
 function createNewTodo() {
+  createNewTodoWithStatus("backlog");
+}
+
+// Create a new todo with a specific status (used by kanban column "+" buttons)
+function createNewTodoWithStatus(status) {
   // Generate a unique ID for the new TODO
   const id = "todo_" + Date.now();
 
@@ -2739,7 +2779,7 @@ function createNewTodo() {
     expanded: false,
     projectId: projectId, // Associate with current project if applicable
     createdAt: Date.now(),
-    status: "backlog",
+    status: status || "backlog",
     dueDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
     lastEdited: Date.now(),
     lastStatusChange: Date.now(),
@@ -3968,24 +4008,15 @@ function setDefaultBackground() {
 
 // Function to initialize background images data display
 function initBackgroundImagesData() {
-  // Initially check from storage if the container should be visible
-  chrome.storage.local.get(
-    {
-      bgImagesDataVisible: false,
-    },
-    function (items) {
-      if (items.bgImagesDataVisible) {
-        $("#bgImagesDataContainer").show();
-        $("#toggleBgImagesData").text("Hide BG Images");
-      } else {
-        $("#bgImagesDataContainer").hide();
-        $("#toggleBgImagesData").text("Show BG Images");
-      }
+  // Always start with the container hidden for a cleaner UI
+  $("#bgImagesDataContainer").hide();
+  $("#toggleBgImagesData").text("Show BG Images");
 
-      // Load the background images data
-      loadBackgroundImagesData();
-    }
-  );
+  // Reset the storage value to hidden
+  chrome.storage.local.set({ bgImagesDataVisible: false });
+
+  // Load the background images data (but keep it hidden)
+  loadBackgroundImagesData();
 }
 
 // Function to load and display background images data

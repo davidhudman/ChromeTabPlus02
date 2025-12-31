@@ -112,20 +112,34 @@
         text-align: left;
       "
     >
-      <button
-        id="toggleTopNotes"
-        style="
-          background: rgba(0, 0, 0, 0.7);
-          color: white;
-          border: none;
-          padding: 5px 10px;
-          border-radius: 5px;
-          cursor: pointer;
-          margin-bottom: 10px;
-        "
-      >
-        Toggle Notes
-      </button>
+      <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+        <button
+          id="toggleTopNotes"
+          style="
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+          "
+        >
+          Toggle Notes
+        </button>
+        <button
+          id="addTodoBtnTopLeft"
+          style="
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+          "
+        >
+          + Add Todo
+        </button>
+      </div>
       <h2
         id="notes"
         style="
@@ -252,9 +266,11 @@
         >
           Hide
         </button>
+        <!-- Add Todo button moved to top-left, keeping this hidden for backwards compatibility -->
         <button
           id="addTodoBtn"
           style="
+            display: none;
             background: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
