@@ -5,7 +5,7 @@
     <script src="jquery.min.js"></script>
     <script src="jquery-ui.min.js"></script>
     <style>
-      /* Zen mode hides everything except the time and greeting text */
+      /* Zen mode hides everything except the time, greeting text, and hamburger menu */
       body.zen-mode #notesText,
       body.zen-mode #todoContainer,
       body.zen-mode #bottomNotesText,
@@ -13,9 +13,7 @@
       body.zen-mode #countdownContainer,
       body.zen-mode #timerToggleButton,
       body.zen-mode #backgroundTip,
-      body.zen-mode #projectControls,
-      body.zen-mode #bgNavButtons,
-      body.zen-mode #zenModeButton {
+      body.zen-mode #projectControls {
         display: none !important;
       }
     </style>
@@ -33,20 +31,18 @@
       height: 900px;
     "
   >
-    <!-- Background Navigation Buttons -->
+    <!-- Hamburger Menu for Todo Controls (top-right) -->
     <div
-      id="bgNavButtons"
+      id="hamburgerMenuContainer"
       style="
         position: absolute;
         top: 20px;
-        right: 420px;
-        z-index: 1000;
-        display: flex;
-        gap: 5px;
+        right: 20px;
+        z-index: 1001;
       "
     >
       <button
-        id="prevBgBtn"
+        id="hamburgerBtn"
         style="
           background: rgba(0, 0, 0, 0.8);
           color: white;
@@ -54,54 +50,111 @@
           padding: 8px 12px;
           border-radius: 5px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 20px;
+          line-height: 1;
         "
-        title="Previous background"
+        title="Menu"
       >
-        &lt;
+        &#9776;
       </button>
-      <button
-        id="nextBgBtn"
+      <div
+        id="hamburgerMenu"
         style="
-          background: rgba(0, 0, 0, 0.8);
-          color: white;
-          border: none;
-          padding: 8px 12px;
+          display: none;
+          position: absolute;
+          top: 40px;
+          right: 0;
+          background: rgba(0, 0, 0, 0.9);
           border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
-        "
-        title="Next background"
-      >
-        &gt;
-      </button>
-    </div>
-    <!-- Zen Mode Toggle (always visible) -->
-    <div
-      id="zenModeButton"
-      style="
-        position: absolute;
-        top: 20px;
-        right: 340px; /* avoid overlap with TODO container at right */
-        z-index: 1000;
-      "
-    >
-      <button
-        id="toggleZenBtn"
-        style="
-          background: rgba(0, 0, 0, 0.8);
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
+          padding: 10px;
+          min-width: 150px;
+          flex-direction: column;
+          gap: 5px;
         "
       >
-        Zen
-      </button>
+        <button
+          id="dailyQuestionsBtn"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          "
+        >
+          <span>Daily Qs</span>
+          <span id="dailyCheck" style="color: #28a745; font-weight: bold; display: none">&#10003;</span>
+        </button>
+        <button
+          id="goalsBtn"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          Goals
+        </button>
+        <button
+          id="toggleDatesBtn"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          Dates: On
+        </button>
+        <button
+          id="toggleTodoViewBtn"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          Settings
+        </button>
+        <button
+          id="toggleZenBtn"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          Zen
+        </button>
+      </div>
     </div>
-    <!-- Add this new div for the top-left notes -->
+
+    <!-- Top-left controls area -->
     <div
       id="notesText"
       style="
@@ -112,7 +165,7 @@
         text-align: left;
       "
     >
-      <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+      <div style="display: flex; gap: 5px; margin-bottom: 10px; align-items: flex-end;">
         <button
           id="toggleTopNotes"
           style="
@@ -139,6 +192,41 @@
         >
           + Add Todo
         </button>
+        <div style="display: flex; flex-direction: column; align-items: center; margin-left: 10px;">
+          <span style="font-size: 10px; color: #ccc; margin-bottom: 2px;">Images</span>
+          <div style="display: flex; gap: 3px;">
+            <button
+              id="prevBgBtn"
+              style="
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 12px;
+              "
+              title="Previous background"
+            >
+              &lt;
+            </button>
+            <button
+              id="nextBgBtn"
+              style="
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 12px;
+              "
+              title="Next background"
+            >
+              &gt;
+            </button>
+          </div>
+        </div>
       </div>
       <h2
         id="notes"
@@ -161,10 +249,10 @@
       id="todoContainer"
       style="
         position: absolute;
-        top: 20px;
+        top: 60px;
         right: 20px;
         width: 300px;
-        max-height: 80vh;
+        max-height: 75vh;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -172,117 +260,9 @@
         z-index: 100;
       "
     >
-      <div
-        id="todoControlsTop"
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 5px;
-          flex-wrap: nowrap;
-        "
-      >
-        <button
-          id="dailyQuestionsBtn"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            margin-right: 5px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-          "
-        >
-          <span>Daily Qs</span>
-          <span id="dailyCheck" style="color: #28a745; font-weight: bold; display: none">&#10003;</span>
-        </button>
-        <button
-          id="goalsBtn"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            margin-right: 5px;
-          "
-        >
-          Goals
-        </button>
-        <button
-          id="toggleDatesBtn"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            margin-right: 5px;
-          "
-        >
-          Dates: On
-        </button>
-        <button
-          id="toggleTodoViewBtn"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            margin-right: 5px;
-          "
-        >
-          Settings
-        </button>
-        <button
-          id="toggleTodosVisibilityBtn"
-          style="
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-            margin-right: 5px;
-          "
-        >
-          Hide
-        </button>
-        <!-- Add Todo button moved to top-left, keeping this hidden for backwards compatibility -->
-        <button
-          id="addTodoBtn"
-          style="
-            display: none;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            white-space: nowrap;
-          "
-        >
-          + Add Todo
-        </button>
+      <!-- Old controls moved to hamburger menu, hidden for backwards compatibility -->
+      <div id="todoControlsTop" style="display: none;">
+        <button id="addTodoBtn" style="display: none;">+ Add Todo</button>
       </div>
       <div id="projectControls" style="margin-bottom: 10px; display: none">
         <!-- Project selector will be dynamically added here -->

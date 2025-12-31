@@ -1017,6 +1017,25 @@ document.addEventListener("DOMContentLoaded", function () {
       nextImageInChromeStoragePhotoArray();
     });
   }
+
+  // Hamburger menu toggle
+  const hamburgerBtn = document.getElementById("hamburgerBtn");
+  const hamburgerMenu = document.getElementById("hamburgerMenu");
+  if (hamburgerBtn && hamburgerMenu) {
+    hamburgerBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const isVisible = hamburgerMenu.style.display === "flex";
+      hamburgerMenu.style.display = isVisible ? "none" : "flex";
+    });
+
+    // Close hamburger menu when clicking outside
+    document.addEventListener("click", function (e) {
+      if (!hamburgerBtn.contains(e.target) && !hamburgerMenu.contains(e.target)) {
+        hamburgerMenu.style.display = "none";
+      }
+    });
+  }
+
 });
 
 // ... existing code ...
@@ -1141,7 +1160,7 @@ let lastCreatedTodoId = null;
 
 // Board statuses
 const BOARD_STATUSES = ["backlog", "on_deck", "in_progress", "done"];
-let isBoardView = false;
+const isBoardView = true; // Always use board view
 let boardRenderVersion = 0; // prevent overlapping renders from duplicating UI
 let showDates = true;
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -1190,65 +1209,25 @@ function migrateTodoStatusesIfNeeded(callback) {
   );
 }
 
-// Create Board toggle button and container
+// Create board container and initialize
 function createBoardToggleAndContainer() {
-  const btn = document.createElement("button");
-  btn.id = "toggleBoardViewBtn";
-  btn.textContent = "Board";
-  btn.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-  btn.style.color = "white";
-  btn.style.border = "none";
-  btn.style.padding = "8px 10px";
-  btn.style.borderRadius = "5px";
-  btn.style.cursor = "pointer";
-  btn.style.fontSize = "14px";
-  btn.style.marginRight = "5px";
+  // Create board container
+  createBoardWrapperIfNeeded();
 
-  btn.addEventListener("click", function () {
-    isBoardView = !isBoardView;
-    btn.textContent = isBoardView ? "List" : "Board";
-    applyTodoViewMode();
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.set({ isBoardView: isBoardView });
-    }
-  });
-
-  const controls = document.getElementById("todoControlsTop");
-  if (controls) {
-    controls.insertBefore(
-      btn,
-      document.getElementById("toggleTodosVisibilityBtn")
-    );
-  }
-
-  // Create board container if missing (full-screen overlay)
-  if (!document.getElementById("boardContainer")) {
-    const board = document.createElement("div");
-    board.id = "boardContainer";
-    board.style.display = "none";
-    board.style.position = "absolute";
-    // Push down to clear the control buttons row
-    board.style.top = "160px";
-    board.style.left = "20px";
-    board.style.right = "20px";
-    board.style.bottom = "20px";
-    board.style.zIndex = "70"; // Above greeting (60), below todo controls (100)
-    board.style.padding = "6px";
-    board.style.background = "rgba(0,0,0,0.25)";
-    board.style.borderRadius = "6px";
-    board.style.overflow = "auto";
-
-    const host = document.getElementById("bodyid") || document.body;
-    host.appendChild(board);
-  }
-
-  // Initialize persisted board/list preference
+  // Initialize board view (always board, no list view)
   if (typeof chrome !== "undefined" && chrome.storage) {
-    chrome.storage.local.get({ isBoardView: false }, function (it) {
-      isBoardView = !!it.isBoardView;
-      btn.textContent = isBoardView ? "List" : "Board";
+    chrome.storage.local.get({ isBoardMinimized: false }, function (it) {
+      isBoardMinimized = !!it.isBoardMinimized;
       applyTodoViewMode();
+      // Apply minimized state after board is rendered
+      if (isBoardMinimized) {
+        setTimeout(function() {
+          toggleBoardMinimize(true);
+        }, 100);
+      }
     });
+  } else {
+    applyTodoViewMode();
   }
 
   // Add Help button
@@ -1284,23 +1263,7 @@ function initShortcutsAndHelp() {
         t.isContentEditable);
     if (isTyping) return;
     const key = e.key.toLowerCase();
-    if (key === "b") {
-      isBoardView = true;
-      if (typeof chrome !== "undefined" && chrome.storage) {
-        chrome.storage.local.set({ isBoardView: true });
-      }
-      const btn = document.getElementById("toggleBoardViewBtn");
-      if (btn) btn.textContent = "List";
-      applyTodoViewMode();
-    } else if (key === "l") {
-      isBoardView = false;
-      if (typeof chrome !== "undefined" && chrome.storage) {
-        chrome.storage.local.set({ isBoardView: false });
-      }
-      const btn = document.getElementById("toggleBoardViewBtn");
-      if (btn) btn.textContent = "Board";
-      applyTodoViewMode();
-    } else if (key === "d") {
+    if (key === "d") {
       createNewTodo();
     } else if (key === "h" || key === "?") {
       toggleHelpOverlay(true);
@@ -1343,8 +1306,6 @@ function toggleHelpOverlay(show) {
     const list = document.createElement("div");
     list.style.fontSize = "14px";
     list.innerHTML =
-      "<div><b>B</b> = Board view</div>" +
-      "<div><b>L</b> = List view</div>" +
       "<div><b>D</b> = New todo</div>" +
       "<div><b>H</b>/<b>?</b> = Toggle this help</div>" +
       "<div><b>Esc</b> = Close dialogs</div>";
@@ -1386,39 +1347,161 @@ function toggleHelpOverlay(show) {
   }
 }
 
+// Create board wrapper if it doesn't exist yet (for early access before migration completes)
+function createBoardWrapperIfNeeded() {
+  if (document.getElementById("boardWrapper")) return;
+
+  // Create outer wrapper for the board with window controls
+  const boardWrapper = document.createElement("div");
+  boardWrapper.id = "boardWrapper";
+  boardWrapper.style.display = "none";
+  boardWrapper.style.position = "absolute";
+  boardWrapper.style.top = "90px";
+  boardWrapper.style.left = "20px";
+  boardWrapper.style.right = "60px";
+  boardWrapper.style.bottom = "80px";
+  boardWrapper.style.zIndex = "70";
+  boardWrapper.style.background = "rgba(0,0,0,0.25)";
+  boardWrapper.style.borderRadius = "6px";
+  boardWrapper.style.overflow = "hidden";
+  boardWrapper.style.pointerEvents = "auto";
+
+  // Create header bar with macOS-style window controls
+  const boardHeader = document.createElement("div");
+  boardHeader.style.display = "flex";
+  boardHeader.style.alignItems = "center";
+  boardHeader.style.padding = "8px 10px";
+  boardHeader.style.background = "rgba(0,0,0,0.4)";
+  boardHeader.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+  boardHeader.style.gap = "6px";
+
+  // Minimize button (yellow)
+  const minimizeBtn = document.createElement("button");
+  minimizeBtn.id = "boardMinimizeBtn";
+  minimizeBtn.style.width = "14px";
+  minimizeBtn.style.height = "14px";
+  minimizeBtn.style.borderRadius = "50%";
+  minimizeBtn.style.background = "#f5c542";
+  minimizeBtn.style.border = "none";
+  minimizeBtn.style.cursor = "pointer";
+  minimizeBtn.style.padding = "0";
+  minimizeBtn.title = "Minimize";
+  minimizeBtn.addEventListener("click", function () {
+    toggleBoardMinimize(true);
+  });
+  boardHeader.appendChild(minimizeBtn);
+
+  // Maximize button (green)
+  const maximizeBtn = document.createElement("button");
+  maximizeBtn.id = "boardMaximizeBtn";
+  maximizeBtn.style.width = "14px";
+  maximizeBtn.style.height = "14px";
+  maximizeBtn.style.borderRadius = "50%";
+  maximizeBtn.style.background = "#34c759";
+  maximizeBtn.style.border = "none";
+  maximizeBtn.style.cursor = "pointer";
+  maximizeBtn.style.padding = "0";
+  maximizeBtn.title = "Maximize";
+  maximizeBtn.addEventListener("click", function () {
+    toggleBoardMinimize(false);
+  });
+  boardHeader.appendChild(maximizeBtn);
+
+  // Title
+  const boardTitle = document.createElement("span");
+  boardTitle.textContent = "Kanban Board";
+  boardTitle.style.color = "#fff";
+  boardTitle.style.fontSize = "12px";
+  boardTitle.style.marginLeft = "10px";
+  boardHeader.appendChild(boardTitle);
+
+  boardWrapper.appendChild(boardHeader);
+
+  // Create the actual board content container
+  const board = document.createElement("div");
+  board.id = "boardContainer";
+  board.style.padding = "6px";
+  board.style.overflow = "auto";
+  board.style.height = "calc(100% - 40px)";
+  boardWrapper.appendChild(board);
+
+  // Add click-through functionality for empty board space
+  boardWrapper.addEventListener("click", function(e) {
+    if (e.target === boardWrapper || e.target === board) {
+      boardWrapper.style.pointerEvents = "none";
+      const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      boardWrapper.style.pointerEvents = "auto";
+      if (elemBelow) {
+        const clickableIds = ["time", "helloText", "notes", "bottomNotes", "toggleBottomNotes", "toggleTopNotes", "bodyid"];
+        const isClickable = clickableIds.includes(elemBelow.id) ||
+                            elemBelow.closest("#greetingText") ||
+                            elemBelow.closest("#bottomNotesText") ||
+                            elemBelow.closest("#notesText");
+        if (isClickable) {
+          elemBelow.click();
+          if (elemBelow.getAttribute("contenteditable") === "true") {
+            elemBelow.focus();
+          }
+        }
+      }
+    }
+  });
+
+  const host = document.getElementById("bodyid") || document.body;
+  host.appendChild(boardWrapper);
+}
+
 function applyTodoViewMode() {
   const active = document.getElementById("activeTodosContainer");
   const deleted = document.getElementById("deletedTodosContainer");
   const projectControls = document.getElementById("projectControls");
   const addBtn = document.getElementById("addTodoBtn");
-  const board = document.getElementById("boardContainer");
+  let boardWrapper = document.getElementById("boardWrapper");
 
-  if (isBoardView) {
-    if (active) active.style.display = "none";
-    if (deleted) deleted.style.display = "none";
-    if (addBtn) addBtn.style.display = "inline-block";
-    if (projectControls)
-      projectControls.style.display = viewMode === 0 ? "block" : "none";
-    if (board) {
-      board.style.display = "block";
-      renderBoard();
-    }
-  } else {
-    // Show list view per viewMode
-    if (board) board.style.display = "none";
-    if (viewMode === 0) {
-      if (active) active.style.display = "block";
-      if (deleted) deleted.style.display = "none";
-      if (projectControls) projectControls.style.display = "block";
-      if (addBtn) addBtn.style.display = "inline-block";
-      refreshTodoList();
-    } else {
-      if (active) active.style.display = "none";
-      if (deleted) deleted.style.display = "block";
-      if (projectControls) projectControls.style.display = "none";
-      if (addBtn) addBtn.style.display = "none";
-    }
+  // Create board wrapper if it doesn't exist
+  if (!boardWrapper) {
+    createBoardWrapperIfNeeded();
+    boardWrapper = document.getElementById("boardWrapper");
   }
+
+  // Always show board view
+  if (active) active.style.display = "none";
+  if (deleted) deleted.style.display = "none";
+  if (addBtn) addBtn.style.display = "inline-block";
+  if (projectControls)
+    projectControls.style.display = viewMode === 0 ? "block" : "none";
+  if (boardWrapper) {
+    boardWrapper.style.display = "block";
+    renderBoard();
+  }
+}
+
+// Toggle kanban board minimize/maximize state
+var isBoardMinimized = false;
+
+function toggleBoardMinimize(minimize) {
+  const boardWrapper = document.getElementById("boardWrapper");
+  const boardContainer = document.getElementById("boardContainer");
+  if (!boardWrapper) return;
+
+  isBoardMinimized = minimize;
+
+  if (minimize) {
+    // Minimize: collapse to just the header bar
+    boardWrapper.style.bottom = "auto";
+    boardWrapper.style.height = "40px";
+    boardWrapper.style.overflow = "hidden";
+    if (boardContainer) boardContainer.style.display = "none";
+  } else {
+    // Maximize: restore full size
+    boardWrapper.style.bottom = "80px";
+    boardWrapper.style.height = "auto";
+    boardWrapper.style.overflow = "hidden";
+    if (boardContainer) boardContainer.style.display = "block";
+  }
+
+  // Save preference
+  chrome.storage.local.set({ isBoardMinimized: minimize });
 }
 
 function renderBoard() {
@@ -2362,9 +2445,6 @@ function initProjects() {
 
       // Update delete project button visibility
       updateDeleteProjectButtonVisibility();
-
-      // Add a tooltip about right-clicking TODOs to assign projects
-      addProjectTooltip();
 
       // Show the project controls in active view
       if (viewMode === 0) {
