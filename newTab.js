@@ -1361,64 +1361,74 @@ function createBoardWrapperIfNeeded() {
   boardWrapper.id = "boardWrapper";
   boardWrapper.style.display = "none";
   boardWrapper.style.position = "absolute";
-  boardWrapper.style.top = "90px";
-  boardWrapper.style.left = "20px";
-  boardWrapper.style.right = "60px";
+  boardWrapper.style.top = "110px";
+  boardWrapper.style.left = "0";
+  boardWrapper.style.right = "0";
   boardWrapper.style.bottom = "80px";
   boardWrapper.style.zIndex = "70";
-  boardWrapper.style.background = "rgba(0,0,0,0.25)";
-  boardWrapper.style.borderRadius = "6px";
   boardWrapper.style.overflow = "hidden";
   boardWrapper.style.pointerEvents = "auto";
 
-  // Create header bar with macOS-style window controls
+  // Create header bar with window controls
   const boardHeader = document.createElement("div");
   boardHeader.style.display = "flex";
   boardHeader.style.alignItems = "center";
+  boardHeader.style.justifyContent = "center";
   boardHeader.style.padding = "8px 10px";
   boardHeader.style.background = "rgba(0,0,0,0.4)";
-  boardHeader.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+  boardHeader.style.borderRadius = "6px";
   boardHeader.style.gap = "6px";
+  boardHeader.style.maxWidth = "200px";
+  boardHeader.style.margin = "0 auto";
 
-  // Minimize button (yellow)
+  // Minimize button (yellow with -)
   const minimizeBtn = document.createElement("button");
   minimizeBtn.id = "boardMinimizeBtn";
-  minimizeBtn.style.width = "14px";
-  minimizeBtn.style.height = "14px";
+  minimizeBtn.textContent = "-";
+  minimizeBtn.style.width = "18px";
+  minimizeBtn.style.height = "18px";
   minimizeBtn.style.borderRadius = "50%";
   minimizeBtn.style.background = "#f5c542";
   minimizeBtn.style.border = "none";
   minimizeBtn.style.cursor = "pointer";
   minimizeBtn.style.padding = "0";
+  minimizeBtn.style.fontSize = "14px";
+  minimizeBtn.style.fontWeight = "bold";
+  minimizeBtn.style.lineHeight = "1";
+  minimizeBtn.style.color = "#000";
   minimizeBtn.title = "Minimize";
   minimizeBtn.addEventListener("click", function () {
     toggleBoardMinimize(true);
   });
   boardHeader.appendChild(minimizeBtn);
 
-  // Maximize button (green)
-  const maximizeBtn = document.createElement("button");
-  maximizeBtn.id = "boardMaximizeBtn";
-  maximizeBtn.style.width = "14px";
-  maximizeBtn.style.height = "14px";
-  maximizeBtn.style.borderRadius = "50%";
-  maximizeBtn.style.background = "#34c759";
-  maximizeBtn.style.border = "none";
-  maximizeBtn.style.cursor = "pointer";
-  maximizeBtn.style.padding = "0";
-  maximizeBtn.title = "Maximize";
-  maximizeBtn.addEventListener("click", function () {
-    toggleBoardMinimize(false);
-  });
-  boardHeader.appendChild(maximizeBtn);
-
   // Title
   const boardTitle = document.createElement("span");
   boardTitle.textContent = "Kanban Board";
   boardTitle.style.color = "#fff";
   boardTitle.style.fontSize = "12px";
-  boardTitle.style.marginLeft = "10px";
   boardHeader.appendChild(boardTitle);
+
+  // Maximize button (green with +)
+  const maximizeBtn = document.createElement("button");
+  maximizeBtn.id = "boardMaximizeBtn";
+  maximizeBtn.textContent = "+";
+  maximizeBtn.style.width = "18px";
+  maximizeBtn.style.height = "18px";
+  maximizeBtn.style.borderRadius = "50%";
+  maximizeBtn.style.background = "#34c759";
+  maximizeBtn.style.border = "none";
+  maximizeBtn.style.cursor = "pointer";
+  maximizeBtn.style.padding = "0";
+  maximizeBtn.style.fontSize = "14px";
+  maximizeBtn.style.fontWeight = "bold";
+  maximizeBtn.style.lineHeight = "1";
+  maximizeBtn.style.color = "#000";
+  maximizeBtn.title = "Maximize";
+  maximizeBtn.addEventListener("click", function () {
+    toggleBoardMinimize(false);
+  });
+  boardHeader.appendChild(maximizeBtn);
 
   boardWrapper.appendChild(boardHeader);
 
