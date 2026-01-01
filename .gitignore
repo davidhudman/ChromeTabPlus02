@@ -1,0 +1,8 @@
+# Personal backgrounds - ignore images and the actual json, but keep folder and example
+backgrounds/personal/*.jpg
+backgrounds/personal/*.jpeg
+backgrounds/personal/*.png
+backgrounds/personal/*.JPG
+backgrounds/personal/*.JPEG
+backgrounds/personal/*.PNG
+backgrounds/personal/backgrounds.json

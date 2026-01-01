@@ -10,18 +10,22 @@ var numImages = 32; // 29;
 // Bundled background images - loaded dynamically from backgrounds/backgrounds.json
 var bundledBackgrounds = [];
 
-// Load the backgrounds list from the JSON manifest
+// Load the backgrounds list from both JSON manifests (main + personal)
 function loadBundledBackgroundsList() {
   return new Promise((resolve, reject) => {
-    const jsonUrl = chrome.runtime.getURL("backgrounds/backgrounds.json");
-    fetch(jsonUrl)
-      .then(response => {
-        if (!response.ok) throw new Error("Failed to load backgrounds.json");
-        return response.json();
-      })
-      .then(images => {
-        // Prepend "backgrounds/" to each filename
-        bundledBackgrounds = images.map(img => "backgrounds/" + img);
+    const mainJsonUrl = chrome.runtime.getURL("backgrounds/backgrounds.json");
+    const personalJsonUrl = chrome.runtime.getURL("backgrounds/personal/backgrounds.json");
+
+    // Fetch both JSON files in parallel
+    Promise.all([
+      fetch(mainJsonUrl).then(r => r.ok ? r.json() : []),
+      fetch(personalJsonUrl).then(r => r.ok ? r.json() : []).catch(() => [])
+    ])
+      .then(([mainImages, personalImages]) => {
+        // Prepend appropriate paths to each filename
+        const mainBgs = mainImages.map(img => "backgrounds/" + img);
+        const personalBgs = personalImages.map(img => "backgrounds/personal/" + img);
+        bundledBackgrounds = [...mainBgs, ...personalBgs];
         resolve(bundledBackgrounds);
       })
       .catch(error => {

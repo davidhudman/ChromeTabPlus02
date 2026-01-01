@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["backgrounds/*"],
+      "resources": ["backgrounds/*", "backgrounds/personal/*"],
       "matches": ["<all_urls>"]
     }
   ],
