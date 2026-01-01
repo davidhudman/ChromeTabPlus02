@@ -981,6 +981,113 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Image gallery modal
+  const viewAllImagesBtn = document.getElementById("viewAllImagesBtn");
+  const imageGalleryModal = document.getElementById("imageGalleryModal");
+  const closeGalleryBtn = document.getElementById("closeGalleryBtn");
+  const imageGalleryGrid = document.getElementById("imageGalleryGrid");
+
+  if (viewAllImagesBtn && imageGalleryModal) {
+    viewAllImagesBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Close hamburger menu
+      if (hamburgerMenu) hamburgerMenu.style.display = "none";
+
+      // Populate gallery with thumbnails
+      imageGalleryGrid.innerHTML = "";
+
+      // Get current background index
+      chrome.storage.local.get({ bundledBgIndex: 0 }, function(prefs) {
+        const currentIndex = prefs.bundledBgIndex;
+
+        bundledBackgrounds.forEach((bg, index) => {
+          const bgUrl = chrome.runtime.getURL(bg);
+          const filename = bg.split('/').pop();
+
+          const thumbContainer = document.createElement("div");
+          thumbContainer.style.cssText = `
+            position: relative;
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            border: 3px solid ${index === currentIndex ? '#4CAF50' : 'transparent'};
+          `;
+
+          const thumb = document.createElement("div");
+          thumb.style.cssText = `
+            width: 100%;
+            height: 100%;
+            background-image: url("${bgUrl}");
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.2s;
+          `;
+
+          const label = document.createElement("div");
+          label.style.cssText = `
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px;
+            font-size: 11px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          `;
+          label.textContent = `${index + 1}. ${filename}`;
+
+          thumbContainer.appendChild(thumb);
+          thumbContainer.appendChild(label);
+
+          thumbContainer.addEventListener("mouseenter", () => {
+            thumb.style.transform = "scale(1.05)";
+          });
+          thumbContainer.addEventListener("mouseleave", () => {
+            thumb.style.transform = "scale(1)";
+          });
+
+          thumbContainer.addEventListener("click", () => {
+            loadBundledBackground(index);
+            imageGalleryModal.style.display = "none";
+          });
+
+          imageGalleryGrid.appendChild(thumbContainer);
+        });
+      });
+
+      imageGalleryModal.style.display = "block";
+    });
+  }
+
+  if (closeGalleryBtn) {
+    closeGalleryBtn.addEventListener("click", function () {
+      imageGalleryModal.style.display = "none";
+    });
+  }
+
+  // Close gallery on escape key
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && imageGalleryModal && imageGalleryModal.style.display === "block") {
+      imageGalleryModal.style.display = "none";
+    }
+  });
+
+  // Close gallery when clicking outside the grid
+  if (imageGalleryModal) {
+    imageGalleryModal.addEventListener("click", function (e) {
+      if (e.target === imageGalleryModal) {
+        imageGalleryModal.style.display = "none";
+      }
+    });
+  }
+
 });
 
 // ... existing code ...
