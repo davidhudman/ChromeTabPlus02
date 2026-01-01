@@ -1219,6 +1219,16 @@ function createBoardToggleAndContainer() {
   // Create board container
   createBoardWrapperIfNeeded();
 
+  // Set board position based on timer visibility
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.sync.get({ timerVisible: true }, function (items) {
+      const boardWrapper = document.getElementById("boardWrapper");
+      if (boardWrapper) {
+        boardWrapper.style.top = items.timerVisible ? "190px" : "110px";
+      }
+    });
+  }
+
   // Initialize board view (always board, no list view)
   if (typeof chrome !== "undefined" && chrome.storage) {
     chrome.storage.local.get({ isBoardMinimized: false }, function (it) {

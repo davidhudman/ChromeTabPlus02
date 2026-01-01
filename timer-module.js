@@ -373,6 +373,7 @@ function toggleTimerVisibility(setVisible) {
   const container = document.getElementById("countdownContainer");
   const showBtn = document.getElementById("showTimerBtn");
   const toggleContainer = document.getElementById("timerToggleButton");
+  const boardWrapper = document.getElementById("boardWrapper");
 
   if (setVisible === undefined) {
     // Toggle current state
@@ -386,6 +387,8 @@ function toggleTimerVisibility(setVisible) {
       showBtn.style.display = "none";
     }
     if (toggleContainer) toggleContainer.style.display = "none";
+    // Move board down when timer is visible
+    if (boardWrapper) boardWrapper.style.top = "190px";
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.sync.set({ timerVisible: true });
     }
@@ -396,6 +399,8 @@ function toggleTimerVisibility(setVisible) {
       showBtn.style.display = "block";
     }
     if (toggleContainer) toggleContainer.style.display = "block";
+    // Move board up when timer is hidden
+    if (boardWrapper) boardWrapper.style.top = "110px";
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.sync.set({ timerVisible: false });
     }
@@ -479,6 +484,7 @@ function initCountdownTimer() {
         }
 
         // Apply saved visibility (but ensure a fallback button is visible)
+        const boardWrapper = document.getElementById("boardWrapper");
         if (items.timerVisible === false) {
           const countdownContainer =
             document.getElementById("countdownContainer");
@@ -488,6 +494,8 @@ function initCountdownTimer() {
             showTimerBtnEl.style.display = "block";
           }
           if (toggleContainerEl) toggleContainerEl.style.display = "block";
+          // Board position when timer hidden
+          if (boardWrapper) boardWrapper.style.top = "110px";
         } else {
           const countdownContainer =
             document.getElementById("countdownContainer");
@@ -497,6 +505,8 @@ function initCountdownTimer() {
             showTimerBtnEl.style.display = "none";
           }
           if (toggleContainerEl) toggleContainerEl.style.display = "none";
+          // Board position when timer visible
+          if (boardWrapper) boardWrapper.style.top = "190px";
         }
 
         // Safety: if both timer and its toggle are hidden (e.g., due to CSS), show the toggle
