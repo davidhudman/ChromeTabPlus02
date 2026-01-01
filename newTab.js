@@ -7,18 +7,30 @@ var countStartValue = 1;
 var count = countStartValue;
 var numImages = 32; // 29;
 
-// Bundled background images in the backgrounds/ folder (cross-platform compatible)
-var bundledBackgrounds = [
-  "backgrounds/sanfran-orange-derick.jpg",
-  "backgrounds/stars-trees-derick.jpg",
-  "backgrounds/twilight-derick.jpg",
-  "backgrounds/lake-derick.jpg",
-  "backgrounds/mountain-hike-derick.jpg",
-  "backgrounds/canyonlands-dhud.JPG",
-  "backgrounds/coastline.png"
-];
+// Bundled background images - loaded dynamically from backgrounds/backgrounds.json
+var bundledBackgrounds = [];
 
-console.log("bundledBackgrounds initialized:", bundledBackgrounds);
+// Load the backgrounds list from the JSON manifest
+function loadBundledBackgroundsList() {
+  return new Promise((resolve, reject) => {
+    const jsonUrl = chrome.runtime.getURL("backgrounds/backgrounds.json");
+    fetch(jsonUrl)
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to load backgrounds.json");
+        return response.json();
+      })
+      .then(images => {
+        // Prepend "backgrounds/" to each filename
+        bundledBackgrounds = images.map(img => "backgrounds/" + img);
+        resolve(bundledBackgrounds);
+      })
+      .catch(error => {
+        console.error("Error loading backgrounds.json:", error);
+        bundledBackgrounds = [];
+        reject(error);
+      });
+  });
+}
 
 var googlePhotosReel = [];
 
@@ -32,72 +44,19 @@ document.addEventListener("DOMContentLoaded", function () {
   //   previousImageInChromeStoragePhotoArray();
   // });
 
-  // Add a more sophisticated click handler for the time
+  // Click handler for the time - left half goes to next image, right half goes to previous
   const timeEl = document.getElementById("time");
   if (timeEl)
     timeEl.addEventListener("click", function (e) {
-      // Get click position relative to the time element
       const rect = timeEl.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const timeWidth = rect.width;
-      const clickRatio = clickX / timeWidth;
-      console.log("Clock clicked at position:", clickX, "of", timeWidth, "ratio:", clickRatio);
 
-      // If click is on the right half (minutes), go backward
-      if (clickX > timeWidth * 0.67) {
-        console.log("Right side clicked - going to previous image");
-        previousImageInChromeStoragePhotoArray();
-      }
-      // If click is on the left third (hours), go forward
-      else if (clickX < timeWidth * 0.33) {
-        console.log("Left side clicked - going to next image");
+      // Left half = next image, Right half = previous image
+      if (clickX < timeWidth * 0.5) {
         nextImageInChromeStoragePhotoArray();
-      }
-      // If click is in the middle (colon), toggle default background
-      else {
-        // Check current background state and toggle
-        chrome.storage.local.get(
-          {
-            backgroundImages: [],
-            useDefaultBackground: false,
-            bundledBgIndex: 0,
-          },
-          function (items) {
-            console.log("Toggle background - Current state:", items);
-
-            if (items.useDefaultBackground) {
-              // Currently using default background, try to switch to custom or bundled
-              if (items.backgroundImages && items.backgroundImages.length > 0) {
-                console.log(
-                  "Switching to custom background:",
-                  items.backgroundImages[0]
-                );
-
-                // Switch to first custom background
-                const bodyEl = document.getElementById("bodyid");
-                if (bodyEl) {
-                  bodyEl.style.backgroundImage = `url(${items.backgroundImages[0].data})`;
-                  bodyEl.style.backgroundColor = "";
-                }
-
-                // Save the state
-                chrome.storage.local.set({
-                  photoArrayCountCurrent: 0,
-                  useDefaultBackground: false,
-                  photoSourceType: "encoded",
-                });
-              } else if (bundledBackgrounds && bundledBackgrounds.length > 0) {
-                // Use bundled backgrounds
-                loadBundledBackground(items.bundledBgIndex || 0);
-              } else {
-                showNotification("No backgrounds available.");
-              }
-            } else {
-              // Currently using custom/bundled background, switch to default
-              setDefaultBackground();
-            }
-          }
-        );
+      } else {
+        previousImageInChromeStoragePhotoArray();
       }
     });
 
@@ -593,10 +552,6 @@ function prevImage() {
 }
 
 function nextImageInChromeStoragePhotoArray() {
-  console.log("nextImageInChromeStoragePhotoArray called");
-  console.log("bundledBackgrounds available:", bundledBackgrounds);
-
-  // First check what type of photo source we're using
   chrome.storage.local.get(
     {
       photoSourceType: null,
@@ -605,36 +560,22 @@ function nextImageInChromeStoragePhotoArray() {
       useDefaultBackground: false,
     },
     function (preferences) {
-      console.log("Next image - preferences:", preferences);
-
-      // If using default background, switch to bundled
-      if (preferences.useDefaultBackground) {
-        console.log("Was using default, switching to bundled index 0");
-        loadBundledBackground(0);
-        return;
-      }
-
       // If user has custom images, use those
       if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
-        console.log("Using custom images");
         loadBackgroundImage();
         return;
       }
 
-      // Otherwise use bundled backgrounds
-      const currentIndex = preferences.bundledBgIndex || 0;
+      // Use bundled backgrounds - advance from current index
+      let currentIndex = parseInt(preferences.bundledBgIndex, 10);
+      if (isNaN(currentIndex) || currentIndex < 0) currentIndex = 0;
       const nextIndex = (currentIndex + 1) % bundledBackgrounds.length;
-      console.log("Next bundled image:", currentIndex, "->", nextIndex);
       loadBundledBackground(nextIndex);
     }
   );
 }
 
 function previousImageInChromeStoragePhotoArray() {
-  console.log("previousImageInChromeStoragePhotoArray called");
-  console.log("bundledBackgrounds available:", bundledBackgrounds);
-
-  // First check what type of photo source we're using
   chrome.storage.local.get(
     {
       photoSourceType: null,
@@ -643,26 +584,16 @@ function previousImageInChromeStoragePhotoArray() {
       useDefaultBackground: false,
     },
     function (preferences) {
-      console.log("Previous image - preferences:", preferences);
-
-      // If using default background, switch to bundled
-      if (preferences.useDefaultBackground) {
-        console.log("Was using default, switching to last bundled");
-        loadBundledBackground(bundledBackgrounds.length - 1);
-        return;
-      }
-
       // If user has custom images, use those
       if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
-        console.log("Using custom images");
         previousEncodedImage();
         return;
       }
 
-      // Otherwise use bundled backgrounds
-      const currentIndex = preferences.bundledBgIndex || 0;
+      // Use bundled backgrounds - go back from current index
+      let currentIndex = parseInt(preferences.bundledBgIndex, 10);
+      if (isNaN(currentIndex) || currentIndex < 0) currentIndex = 0;
       const prevIndex = (currentIndex - 1 + bundledBackgrounds.length) % bundledBackgrounds.length;
-      console.log("Previous bundled image:", currentIndex, "->", prevIndex);
       loadBundledBackground(prevIndex);
     }
   );
@@ -993,7 +924,13 @@ document.addEventListener("DOMContentLoaded", function () {
   // countImagesInFolder();
   displayTime();
   // getStoredData(); // Replace with our new function
-  checkAndLoadBackgroundImage(); // Replace loadInitialBackgroundImage with our new function
+  // Load backgrounds list first, then load the background image
+  loadBundledBackgroundsList()
+    .then(() => checkAndLoadBackgroundImage())
+    .catch(() => {
+      console.error("Failed to load backgrounds list, trying to load background anyway");
+      checkAndLoadBackgroundImage();
+    });
   displayWeatherData();
   var myVar = setInterval(displayTime, 1000);
   // Refresh weather every 30 minutes
@@ -1003,22 +940,21 @@ document.addEventListener("DOMContentLoaded", function () {
   // Removing the automatic background rotation
   // setInterval(loadBackgroundImage, 300000);
 
-  // Background navigation buttons (added here to ensure DOM is ready)
+  // Background navigation buttons
   const prevBtn = document.getElementById("prevBgBtn");
   const nextBtn = document.getElementById("nextBgBtn");
-  console.log("Setting up nav buttons:", prevBtn, nextBtn);
 
   if (prevBtn) {
     prevBtn.addEventListener("click", function (e) {
       e.preventDefault();
-      console.log("Prev button clicked");
+      e.stopPropagation();
       previousImageInChromeStoragePhotoArray();
     });
   }
   if (nextBtn) {
     nextBtn.addEventListener("click", function (e) {
       e.preventDefault();
-      console.log("Next button clicked");
+      e.stopPropagation();
       nextImageInChromeStoragePhotoArray();
     });
   }
@@ -4606,53 +4542,72 @@ function migrateBackgroundImages() {
 
 // New function to check both storage types for background images
 function checkAndLoadBackgroundImage() {
-  console.log("Checking for background images...");
-
-  // Check if the user has explicitly set useDefaultBackground
-  chrome.storage.local.get(
-    {
-      useDefaultBackground: null, // null means not set yet
-      photoSourceType: null, // null means not determined yet
-      bundledBgIndex: 0, // index for bundled backgrounds
-      backgroundImages: [], // user-uploaded images
-      photoArrayCountCurrent: 0,
-    },
-    function (preferences) {
-      console.log("Stored preferences:", preferences);
-
-      // If user has explicitly chosen to use default background, respect that
-      if (preferences.useDefaultBackground === true) {
-        console.log("User preference: default background");
-        setDefaultBackground();
-        return;
-      }
-
-      // If user has uploaded custom images, use those
-      if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
-        console.log("Using user-uploaded images");
-        loadInitialBackgroundImage();
-        return;
-      }
-
-      // Otherwise, use bundled backgrounds from the backgrounds/ folder
-      if (bundledBackgrounds && bundledBackgrounds.length > 0) {
-        console.log("Using bundled backgrounds from backgrounds/ folder");
-        loadBundledBackground(preferences.bundledBgIndex || 0);
-        return;
-      }
-
-      // Fallback to default solid color
-      console.log("No backgrounds available, using default");
-      setDefaultBackground();
+  // First, run migration to clear old user-uploaded images and use bundled backgrounds
+  chrome.storage.local.get({ clearedOldBackgroundImages: false }, function(migrationCheck) {
+    if (!migrationCheck.clearedOldBackgroundImages) {
+      chrome.storage.local.set({
+        backgroundImages: [],
+        clearedOldBackgroundImages: true,
+        photoSourceType: "bundled",
+        bundledBgIndex: 0,
+        currentBgFilename: bundledBackgrounds.length > 0 ? bundledBackgrounds[0] : null
+      }, function() {
+        loadBundledBackground(0);
+      });
+      return;
     }
-  );
+
+    chrome.storage.local.get(
+      {
+        useDefaultBackground: null,
+        photoSourceType: null,
+        bundledBgIndex: 0,
+        currentBgFilename: null,
+        backgroundImages: [],
+        photoArrayCountCurrent: 0,
+      },
+      function (preferences) {
+        // If user has explicitly chosen to use default background, respect that
+        if (preferences.useDefaultBackground === true) {
+          setDefaultBackground();
+          return;
+        }
+
+        // If user has uploaded custom images, use those
+        if (preferences.backgroundImages && preferences.backgroundImages.length > 0) {
+          loadInitialBackgroundImage();
+          return;
+        }
+
+        // Otherwise, use bundled backgrounds from the backgrounds/ folder
+        if (bundledBackgrounds && bundledBackgrounds.length > 0) {
+          // Try to find the image by filename first (persists across list changes)
+          let indexToLoad = 0;
+          if (preferences.currentBgFilename) {
+            const foundIndex = bundledBackgrounds.indexOf(preferences.currentBgFilename);
+            if (foundIndex !== -1) {
+              indexToLoad = foundIndex;
+            } else {
+              // Filename not found (image was removed), fall back to saved index or 0
+              indexToLoad = Math.min(preferences.bundledBgIndex || 0, bundledBackgrounds.length - 1);
+            }
+          } else {
+            indexToLoad = preferences.bundledBgIndex || 0;
+          }
+
+          loadBundledBackground(indexToLoad);
+          return;
+        }
+
+        // Fallback to default solid color
+        setDefaultBackground();
+      }
+    );
+  });
 }
 
 // Load a bundled background image from the backgrounds/ folder
 function loadBundledBackground(index) {
-  console.log("loadBundledBackground called with index:", index);
-  console.log("bundledBackgrounds array:", bundledBackgrounds);
-
   if (!bundledBackgrounds || bundledBackgrounds.length === 0) {
     console.error("No bundled backgrounds available!");
     setDefaultBackground();
@@ -4665,28 +4620,42 @@ function loadBundledBackground(index) {
 
   // Use chrome.runtime.getURL for cross-platform compatibility
   const bgPath = chrome.runtime.getURL(bundledBackgrounds[index]);
-  console.log("Loading bundled background:", bgPath, "index:", index);
 
   const bodyEl = document.getElementById("bodyid");
-  if (bodyEl) {
-    bodyEl.style.backgroundImage = `url("${bgPath}")`;
-    bodyEl.style.backgroundColor = "";
-    console.log("Background set to:", bodyEl.style.backgroundImage);
-  } else {
+  if (!bodyEl) {
     console.error("Body element not found!");
+    return;
   }
 
-  // Save the current index
-  chrome.storage.local.set({
-    bundledBgIndex: index,
-    useDefaultBackground: false,
-    photoSourceType: "bundled",
-  }, function() {
-    console.log("Saved bundledBgIndex:", index);
-    // Extract just the filename for notification
-    const filename = bundledBackgrounds[index].split('/').pop();
-    showNotification(`${index + 1}/${bundledBackgrounds.length}: ${filename}`);
-  });
+  // Preload the image to check if it loads successfully
+  const img = new Image();
+  img.onload = function() {
+    bodyEl.style.backgroundImage = `url("${bgPath}")`;
+    bodyEl.style.backgroundColor = "";
+
+    // Save the current index and filename only after successful load
+    chrome.storage.local.set({
+      bundledBgIndex: index,
+      currentBgFilename: bundledBackgrounds[index],
+      useDefaultBackground: false,
+      photoSourceType: "bundled",
+    }, function() {
+      const filename = bundledBackgrounds[index].split('/').pop();
+      showNotification(`${index + 1}/${bundledBackgrounds.length}: ${filename}`);
+    });
+  };
+  img.onerror = function() {
+    console.error("Failed to load image:", bgPath);
+    // Try the next image if this one fails
+    const nextIndex = (index + 1) % bundledBackgrounds.length;
+    if (nextIndex !== index) {
+      loadBundledBackground(nextIndex);
+    } else {
+      console.error("All images failed to load!");
+      setDefaultBackground();
+    }
+  };
+  img.src = bgPath;
 }
 
 // This is the main function that tries multiple sources in order
