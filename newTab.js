@@ -10,6 +10,32 @@ var numImages = 32; // 29;
 // Bundled background images - loaded dynamically from backgrounds/backgrounds.json
 var bundledBackgrounds = [];
 
+// Background view modes
+var bgViewModes = [
+  { name: "Default", size: "cover", position: "center" },
+  { name: "Top", size: "cover", position: "center top" },
+  { name: "Bottom", size: "cover", position: "center bottom" },
+  { name: "Fit All", size: "contain", position: "center" }
+];
+var currentBgViewModeIndex = 0;
+
+// Apply a background view mode
+function applyBgViewMode(modeIndex) {
+  const bodyEl = document.getElementById("bodyid");
+  if (!bodyEl) return;
+  const mode = bgViewModes[modeIndex];
+  bodyEl.style.backgroundSize = mode.size;
+  bodyEl.style.backgroundPosition = mode.position;
+}
+
+// Reset view mode to default and update button text
+function resetBgViewMode() {
+  currentBgViewModeIndex = 0;
+  applyBgViewMode(0);
+  const btn = document.getElementById("bgViewModeBtn");
+  if (btn) btn.textContent = "View: " + bgViewModes[0].name;
+}
+
 // Load the backgrounds list from both JSON manifests (main + personal)
 function loadBundledBackgroundsList() {
   return new Promise((resolve, reject) => {
@@ -1085,6 +1111,35 @@ document.addEventListener("DOMContentLoaded", function () {
       if (e.target === imageGalleryModal) {
         imageGalleryModal.style.display = "none";
       }
+    });
+  }
+
+  // Background view mode button
+  const bgViewModeBtn = document.getElementById("bgViewModeBtn");
+  if (bgViewModeBtn) {
+    // Load saved view mode for current image
+    chrome.storage.local.get({ currentBgFilename: null, bgViewModes: {} }, function(items) {
+      if (items.currentBgFilename && items.bgViewModes[items.currentBgFilename] !== undefined) {
+        currentBgViewModeIndex = items.bgViewModes[items.currentBgFilename];
+        applyBgViewMode(currentBgViewModeIndex);
+        bgViewModeBtn.textContent = "View: " + bgViewModes[currentBgViewModeIndex].name;
+      }
+    });
+
+    bgViewModeBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Cycle to next view mode
+      currentBgViewModeIndex = (currentBgViewModeIndex + 1) % bgViewModes.length;
+      applyBgViewMode(currentBgViewModeIndex);
+      bgViewModeBtn.textContent = "View: " + bgViewModes[currentBgViewModeIndex].name;
+      // Save view mode for this specific image
+      chrome.storage.local.get({ currentBgFilename: null, bgViewModes: {} }, function(items) {
+        if (items.currentBgFilename) {
+          items.bgViewModes[items.currentBgFilename] = currentBgViewModeIndex;
+          chrome.storage.local.set({ bgViewModes: items.bgViewModes });
+        }
+      });
     });
   }
 
@@ -4776,6 +4831,21 @@ function loadBundledBackground(index) {
   img.onload = function() {
     bodyEl.style.backgroundImage = `url("${bgPath}")`;
     bodyEl.style.backgroundColor = "";
+
+    // Check if this photo has a saved view mode, otherwise reset to default
+    const newFilename = bundledBackgrounds[index];
+    chrome.storage.local.get({ bgViewModes: {} }, function(items) {
+      if (items.bgViewModes[newFilename] !== undefined) {
+        // Apply saved view mode for this photo
+        currentBgViewModeIndex = items.bgViewModes[newFilename];
+        applyBgViewMode(currentBgViewModeIndex);
+        const btn = document.getElementById("bgViewModeBtn");
+        if (btn) btn.textContent = "View: " + bgViewModes[currentBgViewModeIndex].name;
+      } else {
+        // Reset to default view mode for new photo
+        resetBgViewMode();
+      }
+    });
 
     // Save the current index and filename only after successful load
     chrome.storage.local.set({
