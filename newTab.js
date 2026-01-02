@@ -1088,6 +1088,28 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Project management buttons in hamburger menu
+  const addProjectBtnMenu = document.getElementById("addProjectBtnMenu");
+  const deleteProjectBtnMenu = document.getElementById("deleteProjectBtnMenu");
+
+  if (addProjectBtnMenu) {
+    addProjectBtnMenu.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (hamburgerMenu) hamburgerMenu.style.display = "none";
+      createNewProject();
+    });
+  }
+
+  if (deleteProjectBtnMenu) {
+    deleteProjectBtnMenu.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (hamburgerMenu) hamburgerMenu.style.display = "none";
+      deleteCurrentProject();
+    });
+  }
+
 });
 
 // ... existing code ...
@@ -2720,13 +2742,24 @@ function setProjectSelectorValue(value, textOverride) {
 // Function to update delete project button visibility
 function updateDeleteProjectButtonVisibility() {
   const deleteBtn = document.getElementById("deleteProjectBtn");
-  if (!deleteBtn) return;
+  const deleteMenuBtn = document.getElementById("deleteProjectBtnMenu");
+  const deleteDisabledBtn = document.getElementById("deleteProjectDisabledMenu");
+  const projectHintText = document.getElementById("projectHintText");
 
   // Only show delete button if a specific project is selected (not "all" or "none")
-  if (currentProjectId !== "all" && currentProjectId !== "none") {
-    deleteBtn.style.display = "block";
-  } else {
-    deleteBtn.style.display = "none";
+  const shouldShow = currentProjectId !== "all" && currentProjectId !== "none";
+
+  if (deleteBtn) {
+    deleteBtn.style.display = shouldShow ? "block" : "none";
+  }
+  if (deleteMenuBtn) {
+    deleteMenuBtn.style.display = shouldShow ? "block" : "none";
+  }
+  if (deleteDisabledBtn) {
+    deleteDisabledBtn.style.display = shouldShow ? "none" : "block";
+  }
+  if (projectHintText) {
+    projectHintText.style.display = shouldShow ? "none" : "block";
   }
 }
 
