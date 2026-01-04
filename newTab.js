@@ -1114,6 +1114,19 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Toggle timer button in hamburger menu
+  const toggleTimerBtnMenu = document.getElementById("toggleTimerBtnMenu");
+  if (toggleTimerBtnMenu) {
+    toggleTimerBtnMenu.addEventListener("click", function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (hamburgerMenu) hamburgerMenu.style.display = "none";
+      if (typeof toggleTimerVisibility === "function") {
+        toggleTimerVisibility();
+      }
+    });
+  }
+
   // Background view mode button
   const bgViewModeBtn = document.getElementById("bgViewModeBtn");
   if (bgViewModeBtn) {

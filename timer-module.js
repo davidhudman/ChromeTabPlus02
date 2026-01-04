@@ -368,11 +368,9 @@ window.resetTimer = resetTimer;
 window.resumeCountUp = resumeCountUp;
 window.timerComplete = timerComplete;
 
-// Toggle timer visibility
+// Toggle timer visibility (toggle button moved to hamburger menu)
 function toggleTimerVisibility(setVisible) {
   const container = document.getElementById("countdownContainer");
-  const showBtn = document.getElementById("showTimerBtn");
-  const toggleContainer = document.getElementById("timerToggleButton");
   const boardWrapper = document.getElementById("boardWrapper");
 
   if (setVisible === undefined) {
@@ -382,11 +380,6 @@ function toggleTimerVisibility(setVisible) {
 
   if (setVisible) {
     if (container) container.style.display = "block";
-    if (showBtn) {
-      showBtn.textContent = "Show Timer";
-      showBtn.style.display = "none";
-    }
-    if (toggleContainer) toggleContainer.style.display = "none";
     // Move board down when timer is visible
     if (boardWrapper) boardWrapper.style.top = "190px";
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -394,11 +387,6 @@ function toggleTimerVisibility(setVisible) {
     }
   } else {
     if (container) container.style.display = "none";
-    if (showBtn) {
-      showBtn.textContent = "Show Timer";
-      showBtn.style.display = "block";
-    }
-    if (toggleContainer) toggleContainer.style.display = "block";
     // Move board up when timer is hidden
     if (boardWrapper) boardWrapper.style.top = "110px";
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -483,43 +471,20 @@ function initCountdownTimer() {
             timerDisplay.textContent = formatTimeInput(items.lastTimerInput);
         }
 
-        // Apply saved visibility (but ensure a fallback button is visible)
+        // Apply saved visibility (toggle button moved to hamburger menu)
         const boardWrapper = document.getElementById("boardWrapper");
         if (items.timerVisible === false) {
           const countdownContainer =
             document.getElementById("countdownContainer");
           if (countdownContainer) countdownContainer.style.display = "none";
-          if (showTimerBtnEl) {
-            showTimerBtnEl.textContent = "Show Timer";
-            showTimerBtnEl.style.display = "block";
-          }
-          if (toggleContainerEl) toggleContainerEl.style.display = "block";
           // Board position when timer hidden
           if (boardWrapper) boardWrapper.style.top = "110px";
         } else {
           const countdownContainer =
             document.getElementById("countdownContainer");
           if (countdownContainer) countdownContainer.style.display = "block";
-          if (showTimerBtnEl) {
-            showTimerBtnEl.textContent = "Show Timer";
-            showTimerBtnEl.style.display = "none";
-          }
-          if (toggleContainerEl) toggleContainerEl.style.display = "none";
           // Board position when timer visible
           if (boardWrapper) boardWrapper.style.top = "190px";
-        }
-
-        // Safety: if both timer and its toggle are hidden (e.g., due to CSS), show the toggle
-        const countdownContainer =
-          document.getElementById("countdownContainer");
-        if (
-          countdownContainer &&
-          getComputedStyle(countdownContainer).display === "none" &&
-          showTimerBtnEl &&
-          getComputedStyle(showTimerBtnEl).display === "none"
-        ) {
-          showTimerBtnEl.style.display = "block";
-          if (toggleContainerEl) toggleContainerEl.style.display = "block";
         }
 
         // Load timer state after setting up the UI

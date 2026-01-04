@@ -223,6 +223,21 @@
         >
           Zen
         </button>
+        <button
+          id="toggleTimerBtnMenu"
+          style="
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+          "
+        >
+          Toggle Timer
+        </button>
         <div style="display: flex; gap: 5px; align-items: center;">
           <button
             id="prevBgBtn"
@@ -664,16 +679,11 @@
       </div>
     </div>
 
-    <!-- Timer Toggle Button (always visible) -->
+    <!-- Timer Toggle Button (hidden - moved to hamburger menu) -->
     <div
       id="timerToggleButton"
       style="
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 60;
-        display: none;
+        display: none !important;
       "
     >
       <button
