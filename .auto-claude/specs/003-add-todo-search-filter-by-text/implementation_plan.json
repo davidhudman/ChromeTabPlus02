@@ -1,0 +1,125 @@
+{
+  "feature": "Add todo search/filter by text",
+  "description": "Add a search input above the Kanban board that filters todos by matching text in title or description. This allows users with many todos to quickly find specific items without scrolling through all columns.",
+  "created_at": "2026-01-07T20:57:44.562Z",
+  "updated_at": "2026-01-07T21:05:00.000Z",
+  "status": "in_progress",
+  "planStatus": "approved",
+  "workflow_type": "development",
+  "services_involved": ["newTab.js"],
+  "spec_file": "spec.md",
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "name": "Add Search Input UI",
+      "description": "Add search input field to the Kanban board header area",
+      "subtasks": [
+        {
+          "subtask_id": "1.1",
+          "title": "Add global search filter variable",
+          "description": "Add a global variable to store the current search filter text, similar to how currentProjectId works",
+          "status": "completed",
+          "file_path": "newTab.js",
+          "details": "Add 'let currentSearchFilter = \"\"' near the existing currentProjectId variable around line 1299",
+          "notes": "Added let currentSearchFilter = \"\" at line 1300 in newTab.js, right after currentProjectId. Committed as 77261db."
+        },
+        {
+          "subtask_id": "1.2",
+          "title": "Create search input in board header",
+          "description": "Add a search input field to the createBoardWrapperIfNeeded() function, placing it in a new search bar area below the header controls",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "Create search input with placeholder 'Search todos...', dark styled to match existing UI, positioned between board header and board content"
+        },
+        {
+          "subtask_id": "1.3",
+          "title": "Add debounced input handler",
+          "description": "Add input event listener with debouncing (300ms) to update search filter and trigger board re-render",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "Use setTimeout/clearTimeout pattern for debouncing, call renderBoard() on filter change"
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "name": "Implement Search Filtering Logic",
+      "description": "Modify existing filter functions to include text search matching",
+      "subtasks": [
+        {
+          "subtask_id": "2.1",
+          "title": "Add search filter helper function",
+          "description": "Create a helper function that checks if a todo matches the search filter by checking title and description",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "Create matchesSearchFilter(todo) that returns true if currentSearchFilter is empty or todo.title/todo.description contains the search text (case-insensitive)"
+        },
+        {
+          "subtask_id": "2.2",
+          "title": "Update renderBoard() filter logic",
+          "description": "Modify the todo filtering in renderBoard() to also apply the search filter",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "At line ~1803-1807 where todos are filtered by project, add additional filter for matchesSearchFilter()"
+        },
+        {
+          "subtask_id": "2.3",
+          "title": "Update refreshTodoList() filter logic",
+          "description": "Modify the todo filtering in refreshTodoList() to also apply the search filter for list view consistency",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "At line ~3902-3906 where todos are filtered, add matchesSearchFilter() check"
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "name": "Polish and Testing",
+      "description": "Add clear button and test the complete feature",
+      "subtasks": [
+        {
+          "subtask_id": "3.1",
+          "title": "Add clear search button",
+          "description": "Add an 'X' button to clear the search input quickly",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "Add a small clear button that appears when search has text, clicking clears input and resets filter"
+        },
+        {
+          "subtask_id": "3.2",
+          "title": "Handle board minimize state",
+          "description": "Ensure search bar visibility is properly managed when board is minimized/maximized",
+          "status": "pending",
+          "file_path": "newTab.js",
+          "details": "Update toggleBoardMinimize() to show/hide search bar appropriately"
+        },
+        {
+          "subtask_id": "3.3",
+          "title": "Manual testing",
+          "description": "Test search functionality with various inputs and edge cases",
+          "status": "pending",
+          "file_path": null,
+          "details": "Test: empty search shows all, partial matches work, case insensitive, special characters, clearing works, works with project filter"
+        }
+      ]
+    }
+  ],
+  "critical_files": [
+    {
+      "path": "newTab.js",
+      "reason": "Main file containing renderBoard(), refreshTodoList(), and createBoardWrapperIfNeeded() - all functions that need modification"
+    }
+  ],
+  "dependencies": [],
+  "estimated_complexity": "low",
+  "final_acceptance": [
+    "Search input appears above the Kanban board",
+    "Typing in search filters todos in real-time (with debounce)",
+    "Search matches both title and description (case-insensitive)",
+    "Empty search shows all todos",
+    "Clear button resets the search",
+    "Search works in combination with project filter",
+    "Board minimize/maximize handles search bar correctly",
+    "No performance issues with rapid typing"
+  ]
+}
