@@ -70,9 +70,10 @@
           "subtask_id": "2.3",
           "title": "Update refreshTodoList() filter logic",
           "description": "Modify the todo filtering in refreshTodoList() to also apply the search filter for list view consistency",
-          "status": "pending",
+          "status": "completed",
           "file_path": "newTab.js",
-          "details": "At line ~3902-3906 where todos are filtered, add matchesSearchFilter() check"
+          "details": "At line ~3902-3906 where todos are filtered, add matchesSearchFilter() check",
+          "notes": "Modified the todo filtering in refreshTodoList() at lines 3952-3956 to apply matchesSearchFilter() in all three project filter branches (all, none, and specific project). This ensures search filtering is consistent between the Kanban board view and the list view. Committed as 2aa4c6f."
         }
       ]
     },
