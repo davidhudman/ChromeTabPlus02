@@ -1625,7 +1625,7 @@ function createBoardWrapperIfNeeded() {
   // Create clear button
   const clearBtn = document.createElement("button");
   clearBtn.id = "boardSearchClear";
-  clearBtn.innerHTML = "✕";
+  clearBtn.innerHTML = "&times;";
   clearBtn.style.position = "absolute";
   clearBtn.style.right = "8px";
   clearBtn.style.top = "50%";
