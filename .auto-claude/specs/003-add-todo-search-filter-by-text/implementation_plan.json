@@ -52,9 +52,10 @@
           "subtask_id": "2.1",
           "title": "Add search filter helper function",
           "description": "Create a helper function that checks if a todo matches the search filter by checking title and description",
-          "status": "pending",
+          "status": "completed",
           "file_path": "newTab.js",
-          "details": "Create matchesSearchFilter(todo) that returns true if currentSearchFilter is empty or todo.title/todo.description contains the search text (case-insensitive)"
+          "details": "Create matchesSearchFilter(todo) that returns true if currentSearchFilter is empty or todo.title/todo.description contains the search text (case-insensitive)",
+          "notes": "Added matchesSearchFilter(todo) helper function at lines 1311-1321 in newTab.js. Returns true if currentSearchFilter is empty or if todo.title/description contains the search text (case-insensitive). Handles null/undefined fields gracefully. Committed as 44bdb0e."
         },
         {
           "subtask_id": "2.2",
