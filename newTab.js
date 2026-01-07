@@ -1851,9 +1851,9 @@ function renderBoard() {
       // Populate cards
       const todos = items.todos || [];
       const filtered = todos.filter((t) => {
-        if (currentProjectId === "all") return true;
-        if (currentProjectId === "none") return !t.projectId;
-        return t.projectId === currentProjectId;
+        if (currentProjectId === "all") return matchesSearchFilter(t);
+        if (currentProjectId === "none") return !t.projectId && matchesSearchFilter(t);
+        return t.projectId === currentProjectId && matchesSearchFilter(t);
       });
       // Only populate if still latest render
       if (renderToken !== boardRenderVersion) return;
