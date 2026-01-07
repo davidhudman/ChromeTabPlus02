@@ -1740,6 +1740,7 @@ var isBoardMinimized = false;
 function toggleBoardMinimize(minimize) {
   const boardWrapper = document.getElementById("boardWrapper");
   const boardContainer = document.getElementById("boardContainer");
+  const boardSearchBar = document.getElementById("boardSearchBar");
   if (!boardWrapper) return;
 
   isBoardMinimized = minimize;
@@ -1750,12 +1751,14 @@ function toggleBoardMinimize(minimize) {
     boardWrapper.style.height = "40px";
     boardWrapper.style.overflow = "hidden";
     if (boardContainer) boardContainer.style.display = "none";
+    if (boardSearchBar) boardSearchBar.style.display = "none";
   } else {
     // Maximize: restore full size
     boardWrapper.style.bottom = "80px";
     boardWrapper.style.height = "auto";
     boardWrapper.style.overflow = "hidden";
     if (boardContainer) boardContainer.style.display = "block";
+    if (boardSearchBar) boardSearchBar.style.display = "flex";
   }
 
   // Save preference
