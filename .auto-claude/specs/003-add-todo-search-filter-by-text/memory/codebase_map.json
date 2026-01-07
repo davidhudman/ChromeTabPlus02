@@ -1,10 +1,10 @@
 {
   "discovered_files": {
     "newTab.js": {
-      "description": "Search bar UI elements: boardSearchBar (container div, id=\"boardSearchBar\") and boardSearchInput (input element, id=\"boardSearchInput\") are created in createBoardWrapperIfNeeded() at lines 1583-1608. The boardContainer height was adjusted to 90px to accommodate the search bar.",
-      "category": "ui-components",
-      "discovered_at": "2026-01-07T22:04:59.228830+00:00"
+      "description": "matchesSearchFilter(todo) helper function at lines 1311-1321. Returns true if currentSearchFilter is empty or if todo.title/description contains the search text (case-insensitive). Uses toLowerCase() for case-insensitive matching and handles null/undefined fields with || \"\" fallback.",
+      "category": "helper_functions",
+      "discovered_at": "2026-01-07T22:08:55.667993+00:00"
     }
   },
-  "last_updated": "2026-01-07T22:04:59.228838+00:00"
+  "last_updated": "2026-01-07T22:08:55.668003+00:00"
 }

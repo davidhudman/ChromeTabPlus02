@@ -3948,11 +3948,11 @@ function refreshTodoList() {
       },
       function (items) {
         items.todos.forEach((todo) => {
-          // Only render todos that match the current project filter
+          // Only render todos that match the current project filter and search filter
           if (
-            currentProjectId === "all" ||
-            (currentProjectId === "none" && !todo.projectId) ||
-            todo.projectId === currentProjectId
+            (currentProjectId === "all" && matchesSearchFilter(todo)) ||
+            (currentProjectId === "none" && !todo.projectId && matchesSearchFilter(todo)) ||
+            (todo.projectId === currentProjectId && matchesSearchFilter(todo))
           ) {
             renderTodo(todo, false);
           }

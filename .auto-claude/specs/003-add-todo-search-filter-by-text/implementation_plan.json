@@ -61,9 +61,10 @@
           "subtask_id": "2.2",
           "title": "Update renderBoard() filter logic",
           "description": "Modify the todo filtering in renderBoard() to also apply the search filter",
-          "status": "pending",
+          "status": "completed",
           "file_path": "newTab.js",
-          "details": "At line ~1803-1807 where todos are filtered by project, add additional filter for matchesSearchFilter()"
+          "details": "At line ~1803-1807 where todos are filtered by project, add additional filter for matchesSearchFilter()",
+          "notes": "Modified the todo filtering in renderBoard() at lines 1853-1857 to also apply matchesSearchFilter(). The filter is now applied in all three project filter branches: 'all' projects, 'none' (no project), and specific project selections. Committed as 12afd25."
         },
         {
           "subtask_id": "2.3",
