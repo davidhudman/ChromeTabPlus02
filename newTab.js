@@ -1601,24 +1601,68 @@ function createBoardWrapperIfNeeded() {
   searchBar.style.padding = "8px 16px";
   searchBar.style.marginTop = "4px";
 
+  // Create search input wrapper for positioning clear button
+  const searchInputWrapper = document.createElement("div");
+  searchInputWrapper.style.position = "relative";
+  searchInputWrapper.style.width = "100%";
+  searchInputWrapper.style.maxWidth = "400px";
+
   // Create search input
   const searchInput = document.createElement("input");
   searchInput.id = "boardSearchInput";
   searchInput.type = "text";
   searchInput.placeholder = "Search todos...";
   searchInput.style.width = "100%";
-  searchInput.style.maxWidth = "400px";
-  searchInput.style.padding = "8px 12px";
+  searchInput.style.padding = "8px 32px 8px 12px"; // Extra right padding for clear button
   searchInput.style.border = "1px solid rgba(255,255,255,0.2)";
   searchInput.style.borderRadius = "6px";
   searchInput.style.background = "rgba(0,0,0,0.4)";
   searchInput.style.color = "#fff";
   searchInput.style.fontSize = "14px";
   searchInput.style.outline = "none";
+  searchInput.style.boxSizing = "border-box";
+
+  // Create clear button
+  const clearBtn = document.createElement("button");
+  clearBtn.id = "boardSearchClear";
+  clearBtn.innerHTML = "✕";
+  clearBtn.style.position = "absolute";
+  clearBtn.style.right = "8px";
+  clearBtn.style.top = "50%";
+  clearBtn.style.transform = "translateY(-50%)";
+  clearBtn.style.background = "none";
+  clearBtn.style.border = "none";
+  clearBtn.style.color = "rgba(255,255,255,0.6)";
+  clearBtn.style.fontSize = "14px";
+  clearBtn.style.cursor = "pointer";
+  clearBtn.style.padding = "4px";
+  clearBtn.style.lineHeight = "1";
+  clearBtn.style.display = "none"; // Hidden by default
+  clearBtn.title = "Clear search";
+
+  // Clear button hover effect
+  clearBtn.addEventListener("mouseenter", function() {
+    clearBtn.style.color = "#fff";
+  });
+  clearBtn.addEventListener("mouseleave", function() {
+    clearBtn.style.color = "rgba(255,255,255,0.6)";
+  });
+
+  // Clear button click handler
+  clearBtn.addEventListener("click", function() {
+    searchInput.value = "";
+    currentSearchFilter = "";
+    clearBtn.style.display = "none";
+    renderBoard();
+    searchInput.focus();
+  });
 
   // Add debounced input handler for search filtering
   let searchDebounceTimer = null;
   searchInput.addEventListener("input", function(e) {
+    // Show/hide clear button based on input content
+    clearBtn.style.display = e.target.value ? "block" : "none";
+
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(function() {
       currentSearchFilter = e.target.value.trim();
@@ -1626,7 +1670,9 @@ function createBoardWrapperIfNeeded() {
     }, 300);
   });
 
-  searchBar.appendChild(searchInput);
+  searchInputWrapper.appendChild(searchInput);
+  searchInputWrapper.appendChild(clearBtn);
+  searchBar.appendChild(searchInputWrapper);
   boardWrapper.appendChild(searchBar);
 
   // Create the actual board content container
