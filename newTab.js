@@ -1308,6 +1308,18 @@ let boardRenderVersion = 0; // prevent overlapping renders from duplicating UI
 let showDates = true;
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
+// Helper function to check if a todo matches the current search filter
+function matchesSearchFilter(todo) {
+  // If no search filter, all todos match
+  if (!currentSearchFilter) return true;
+
+  const searchLower = currentSearchFilter.toLowerCase();
+  const titleMatch = (todo.title || "").toLowerCase().includes(searchLower);
+  const descMatch = (todo.description || "").toLowerCase().includes(searchLower);
+
+  return titleMatch || descMatch;
+}
+
 // Migrate existing todos to include new fields if missing (status, dueDate, lastEdited, lastStatusChange)
 function migrateTodoStatusesIfNeeded(callback) {
   chrome.storage.local.get(

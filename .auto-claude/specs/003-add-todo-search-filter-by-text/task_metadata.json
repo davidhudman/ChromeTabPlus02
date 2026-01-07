@@ -1,0 +1,13 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-003",
+  "rationale": "The refreshTodoList() and renderBoard() functions already filter todos by project (currentProjectId). Adding text filter would extend this existing filter logic. The pattern of getting todos from storage, filtering, and rendering is well established.",
+  "category": "feature",
+  "estimatedEffort": "small",
+  "complexity": "small",
+  "affectedFiles": [
+    "newTab.js",
+    "newTab.html"
+  ]
+}

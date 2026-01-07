@@ -1,0 +1,10 @@
+{
+  "discovered_files": {
+    "newTab.js": {
+      "description": "Search bar UI elements: boardSearchBar (container div, id=\"boardSearchBar\") and boardSearchInput (input element, id=\"boardSearchInput\") are created in createBoardWrapperIfNeeded() at lines 1583-1608. The boardContainer height was adjusted to 90px to accommodate the search bar.",
+      "category": "ui-components",
+      "discovered_at": "2026-01-07T22:04:59.228830+00:00"
+    }
+  },
+  "last_updated": "2026-01-07T22:04:59.228838+00:00"
+}

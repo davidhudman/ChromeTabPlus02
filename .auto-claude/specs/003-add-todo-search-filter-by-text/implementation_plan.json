@@ -27,17 +27,19 @@
           "subtask_id": "1.2",
           "title": "Create search input in board header",
           "description": "Add a search input field to the createBoardWrapperIfNeeded() function, placing it in a new search bar area below the header controls",
-          "status": "pending",
+          "status": "completed",
           "file_path": "newTab.js",
-          "details": "Create search input with placeholder 'Search todos...', dark styled to match existing UI, positioned between board header and board content"
+          "details": "Create search input with placeholder 'Search todos...', dark styled to match existing UI, positioned between board header and board content",
+          "notes": "Added search input UI to createBoardWrapperIfNeeded(): created boardSearchBar container and boardSearchInput with dark theme styling (rgba(0,0,0,0.4) background, white text, placeholder 'Search todos...'). Adjusted boardContainer height from calc(100% - 40px) to calc(100% - 90px). Committed as f1bd152."
         },
         {
           "subtask_id": "1.3",
           "title": "Add debounced input handler",
           "description": "Add input event listener with debouncing (300ms) to update search filter and trigger board re-render",
-          "status": "pending",
+          "status": "completed",
           "file_path": "newTab.js",
-          "details": "Use setTimeout/clearTimeout pattern for debouncing, call renderBoard() on filter change"
+          "details": "Use setTimeout/clearTimeout pattern for debouncing, call renderBoard() on filter change",
+          "notes": "Added debounced input handler with 300ms delay using setTimeout/clearTimeout pattern. The handler updates currentSearchFilter with trimmed input value and calls renderBoard(). Committed as 6e63a27."
         }
       ]
     },
