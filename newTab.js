@@ -1297,6 +1297,7 @@ function toggleNotesVisibility(storageKey, elementSelector) {
 let viewMode = 0;
 let todosVisible = true;
 let currentProjectId = "all"; // Default to showing all projects
+let currentSearchFilter = ""; // Current search filter text for filtering todos
 // Track the last created todo to control focus behavior after render
 let lastCreatedTodoId = null;
 
