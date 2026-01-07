@@ -1604,6 +1604,16 @@ function createBoardWrapperIfNeeded() {
   searchInput.style.fontSize = "14px";
   searchInput.style.outline = "none";
 
+  // Add debounced input handler for search filtering
+  let searchDebounceTimer = null;
+  searchInput.addEventListener("input", function(e) {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(function() {
+      currentSearchFilter = e.target.value.trim();
+      renderBoard();
+    }, 300);
+  });
+
   searchBar.appendChild(searchInput);
   boardWrapper.appendChild(searchBar);
 
