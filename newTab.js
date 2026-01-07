@@ -1580,12 +1580,39 @@ function createBoardWrapperIfNeeded() {
 
   boardWrapper.appendChild(boardHeader);
 
+  // Create search bar container
+  const searchBar = document.createElement("div");
+  searchBar.id = "boardSearchBar";
+  searchBar.style.display = "flex";
+  searchBar.style.alignItems = "center";
+  searchBar.style.justifyContent = "center";
+  searchBar.style.padding = "8px 16px";
+  searchBar.style.marginTop = "4px";
+
+  // Create search input
+  const searchInput = document.createElement("input");
+  searchInput.id = "boardSearchInput";
+  searchInput.type = "text";
+  searchInput.placeholder = "Search todos...";
+  searchInput.style.width = "100%";
+  searchInput.style.maxWidth = "400px";
+  searchInput.style.padding = "8px 12px";
+  searchInput.style.border = "1px solid rgba(255,255,255,0.2)";
+  searchInput.style.borderRadius = "6px";
+  searchInput.style.background = "rgba(0,0,0,0.4)";
+  searchInput.style.color = "#fff";
+  searchInput.style.fontSize = "14px";
+  searchInput.style.outline = "none";
+
+  searchBar.appendChild(searchInput);
+  boardWrapper.appendChild(searchBar);
+
   // Create the actual board content container
   const board = document.createElement("div");
   board.id = "boardContainer";
   board.style.padding = "6px";
   board.style.overflow = "auto";
-  board.style.height = "calc(100% - 40px)";
+  board.style.height = "calc(100% - 90px)"; // Adjusted for header + search bar
   boardWrapper.appendChild(board);
 
   // Add click-through functionality for empty board space
