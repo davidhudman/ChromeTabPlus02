@@ -1564,7 +1564,7 @@ function createBoardWrapperIfNeeded() {
 
   // Title
   const boardTitle = document.createElement("span");
-  boardTitle.textContent = "Kanban Board 2";
+  boardTitle.textContent = "Kanban Board";
   boardTitle.style.color = "#fff";
   boardTitle.style.fontSize = "12px";
   boardHeader.appendChild(boardTitle);
