@@ -6,3 +6,7 @@ backgrounds/personal/*.JPG
 backgrounds/personal/*.JPEG
 backgrounds/personal/*.PNG
 backgrounds/personal/backgrounds.json
+
+# Auto Claude data directory
+.auto-claude/
+.worktrees

@@ -669,6 +669,8 @@ function getCryptoPrices() {
         "BCH vs 2024-01-01: " + ((((btcToBch - 0.006075) / 0.006075) * 100) > 0 ? "+" : "") + (((btcToBch - 0.006075) / 0.006075) * 100).toFixed(2) + "%" +
         "<br />" +
         "BCH vs 2025-01-01: " + ((((btcToBch - 0.004647) / 0.004647) * 100) > 0 ? "+" : "") + (((btcToBch - 0.004647) / 0.004647) * 100).toFixed(2) + "%" +
+        "<br />" +
+        "BCH vs 2026-01-01: " + ((((btcToBch - 0.006794) / 0.006794) * 100) > 0 ? "+" : "") + (((btcToBch - 0.006794) / 0.006794) * 100).toFixed(2) + "%" +
         "<br /><br />" +
         "ADA Mkt Cap: $" + formatMktCap(adaMktCap) +
         "<br />" +
