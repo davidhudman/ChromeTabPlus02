@@ -326,8 +326,52 @@ function resumeCountUp() {
   saveTimerState();
 }
 
+// Play alarm sound using Web Audio API
+function playAlarmSound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Resume context if suspended (browser autoplay policy)
+    if (audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+
+    // Create a pleasant alarm sound (two-tone beep pattern)
+    const playTone = (frequency, startTime, duration) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = "sine";
+
+      // Use gain ramping for smooth sound
+      gainNode.gain.setValueAtTime(0.3, startTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    // Play a sequence of pleasant tones
+    const now = audioContext.currentTime;
+    playTone(880, now, 0.2);        // A5
+    playTone(880, now + 0.25, 0.2); // A5
+    playTone(1047, now + 0.5, 0.3); // C6 (higher, final tone)
+
+  } catch (error) {
+    // Don't throw - let timer continue functioning
+    // Audio errors should not break the timer
+  }
+}
+
 // Timer complete
 function timerComplete() {
+  // Play alarm sound immediately when timer completes
+  playAlarmSound();
+
   // Don't clear the interval - switch to count-up mode
   isCountingUp = true;
   countUpSeconds = 0;
@@ -366,6 +410,7 @@ window.pauseTimer = pauseTimer;
 window.resumeTimer = resumeTimer;
 window.resetTimer = resetTimer;
 window.resumeCountUp = resumeCountUp;
+window.playAlarmSound = playAlarmSound;
 window.timerComplete = timerComplete;
 
 // Toggle timer visibility (toggle button moved to hamburger menu)
